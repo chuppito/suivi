@@ -11,32 +11,26 @@ class _ProductHistoryState extends State<ProductHistory> {
  String search='';
  Future<void> add(Map<String,Object?> product) async {
   final grams=TextEditingController(text:'30');
-  var category='Collation';
-  final chosen=await showDialog<(double,String)>(context:context,builder:(ctx)=>StatefulBuilder(builder:(ctx,refresh)=>AlertDialog(
+  
+  final chosen=await showDialog<double>(context:context,builder:(ctx)=>AlertDialog(
    title:Text(product['name'].toString()),
    content:Column(mainAxisSize:MainAxisSize.min,children:[
     Text('Pour 100 g : ${product['kcal']} kcal'),
     TextField(controller:grams,keyboardType:const TextInputType.numberWithOptions(decimal:true),decoration:const InputDecoration(labelText:'Quantité mangée (g)')),
-    DropdownButtonFormField<String>(value:category,items:const [
-     DropdownMenuItem(value:'Petit-déjeuner',child:Text('Petit-déjeuner')),
-     DropdownMenuItem(value:'Déjeuner',child:Text('Déjeuner')),
-     DropdownMenuItem(value:'Dîner',child:Text('Dîner')),
-     DropdownMenuItem(value:'Collation',child:Text('Collation')),
-    ],onChanged:(v){if(v!=null)refresh(()=>category=v);}),
    ]),
    actions:[TextButton(onPressed:()=>Navigator.pop(ctx),child:const Text('Annuler')),
     FilledButton(onPressed:(){
      final n=double.tryParse(grams.text.replaceAll(',','.'));
-     if(n!=null&&n>0)Navigator.pop(ctx,(n,category));
-    },child:const Text('Ajouter au jour'))],
-  )));
+     if(n!=null&&n>0)Navigator.pop(ctx,n);
+    },child:const Text('Ajouter en collation'))],
+  ));
   if(chosen==null)return;
-  final factor=chosen.$1/100;
+  final factor=chosen/100;
   double nutrient(String key)=>((product[key] as num?)?.toDouble()??0)*factor;
   final now=DateTime.now().toIso8601String().substring(0,10);
   await widget.db.insert('meals',{
-   'date':now,'category':chosen.$2,
-   'description':'${product['name']} ${chosen.$1.toStringAsFixed(0)} g',
+   'date':now,'category':'Collation',
+   'description':'${product['name']} ${chosen.toStringAsFixed(0)} g',
    'calories':nutrient('kcal').ceil(),'protein':nutrient('protein'),
    'carbs':nutrient('carbs'),'fat':nutrient('fat'),
    'uncertainty':'Produit issu de la bibliothèque personnelle ; valeurs pour 100 g à vérifier.',
