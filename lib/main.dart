@@ -109,6 +109,7 @@ class Dashboard extends StatelessWidget {
     future: Future.wait([
       Store.all('measures', order: 'date DESC'),
       Store.all('meals', order: 'date DESC'),
+      Store.all('settings'),
     ]),
     builder: (context, snapshot) {
       if (!snapshot.hasData) {
@@ -117,6 +118,8 @@ class Dashboard extends StatelessWidget {
       final measures = snapshot.data![0];
       final meals = snapshot.data![1]
           .where((r) => (r['date'] as String).startsWith(today())).toList();
+      final goalSetting = snapshot.data![2].where((row) => row['key'] == 'calorie_goal');
+      final goal = goalSetting.isEmpty ? null : int.tryParse(goalSetting.first['value'] as String? ?? '');
       final calories = meals.fold<double>(
         0, (value, meal) => value + ((meal['calories'] as num?)?.toDouble() ?? 0),
       );
@@ -133,7 +136,7 @@ class Dashboard extends StatelessWidget {
           Text('Aujourd’hui', style: Theme.of(context).textTheme.titleLarge),
           Card(child: ListTile(
             title: Text("${calories.toStringAsFixed(0)} kcal estimées"),
-            subtitle: Text("${meals.length} repas enregistré(s)"),
+            subtitle: Text(goal == null ? "${meals.length} repas enregistré(s)" : "${meals.length} repas • objectif : $goal kcal"),
           )),
           const Text('Les estimations alimentaires ne sont pas des mesures exactes.'),
           const SizedBox(height: 12),
@@ -246,7 +249,7 @@ class More extends StatelessWidget{final VoidCallback reload;const More({super.k
  if(!context.mounted)return;
  await editForm(context,'Objectif calorique',[('kcal par jour',controller)],() async{
  final value=int.tryParse(controller.text);
- if(value==null||value<500||value>10000)throw const FormatException('Objectif hors limites');
+ if(value==null||value<500||value>10000)return;
  await Store.db.insert('settings',{'key':'calorie_goal','value':'$value'},conflictAlgorithm:ConflictAlgorithm.replace);
  reload();
  });
