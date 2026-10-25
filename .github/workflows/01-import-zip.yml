@@ -1,0 +1,53 @@
+name: 1 - Importer archive Flutter
+on:
+  push:
+    paths:
+      - '*.zip'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  importer:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - name: Decompresser le projet a la racine
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path, PurePosixPath
+          from zipfile import ZipFile
+          archives = sorted(Path('.').glob('*.zip'))
+          if len(archives) != 1:
+              raise SystemExit(f"Il faut exactement une archive ZIP a la racine (trouve: {len(archives)}).")
+          with ZipFile(archives[0]) as z:
+              entries = [i for i in z.infolist() if not i.is_dir()]
+              paths = [PurePosixPath(i.filename) for i in entries]
+              if not paths or any(p.is_absolute() or '..' in p.parts for p in paths):
+                  raise SystemExit('Archive vide ou chemin dangereux.')
+              prefix = paths[0].parts[0] if all(len(p.parts)>1 and p.parts[0]==paths[0].parts[0] for p in paths) else None
+              for info, p in zip(entries, paths):
+                  if (info.external_attr >> 16) & 0o170000 == 0o120000:
+                      raise SystemExit('Liens symboliques interdits.')
+                  target = Path(*p.parts[1:]) if prefix else Path(*p.parts)
+                  if not target.parts or target.parts[0] == '.git':
+                      raise SystemExit('Chemin interdit.')
+                  if str(target).startswith('.github/workflows/'):
+                      continue  # Conserver les workflows de ce depot
+                  target.parent.mkdir(parents=True, exist_ok=True)
+                  target.write_bytes(z.read(info))
+          PY
+          test -f pubspec.yaml
+          test -f lib/main.dart
+      - name: Enregistrer les fichiers sur main
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A -- . ':!*.zip'
+          if ! git diff --cached --quiet; then
+            git commit -m "Importer les sources Flutter depuis ZIP"
+            git push
+          fi
