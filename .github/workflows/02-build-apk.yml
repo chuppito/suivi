@@ -21,6 +21,9 @@ jobs:
       - name: Generer les fichiers Android si absents
         run: |
           flutter create --platforms=android --project-name suivi --org fr.chuppito .
+      - name: Installer icone personnalisee
+        run: |
+          sed -i 's|@mipmap/ic_launcher|@drawable/suivi_icon|g' android/app/src/main/AndroidManifest.xml
       - name: Installer dependances
         run: flutter pub get
       - name: Tests
