@@ -23,6 +23,7 @@ class Store {
    await d.execute('CREATE TABLE activities(id INTEGER PRIMARY KEY AUTOINCREMENT,date TEXT,type TEXT,duration INTEGER,intensity TEXT,notes TEXT)');
    await d.execute('CREATE TABLE settings(key TEXT PRIMARY KEY,value TEXT)');
   });
+  await db.execute('CREATE TABLE IF NOT EXISTS food_library(id INTEGER PRIMARY KEY AUTOINCREMENT,barcode TEXT UNIQUE,name TEXT NOT NULL,kcal REAL NOT NULL,protein REAL DEFAULT 0,carbs REAL DEFAULT 0,fat REAL DEFAULT 0)');
   for(final entry in <String,String>{'calorie_goal':'2350','points_goal':'48','protein_goal':'140','fat_goal':'75','carb_goal':'280','weight_goal':'88'}.entries){
     await db.insert('settings',{'key':entry.key,'value':entry.value},conflictAlgorithm:ConflictAlgorithm.ignore);
   }
@@ -173,7 +174,7 @@ class _DashboardState extends State<Dashboard> {
             const SizedBox(height:8),
             Text('$usedPoints / $pointsGoal points utilisés'),
             const SizedBox(height:8),
-            LinearProgressIndicator(value:(usedPoints/pointsGoal).clamp(0.0,1.0)),
+            LinearProgressIndicator(value:(usedPoints/(pointsGoal<=0?1:pointsGoal)).clamp(0.0,1.0),minHeight:16,borderRadius:BorderRadius.circular(12),backgroundColor:Colors.teal.shade100,color:Colors.teal.shade800),
             const SizedBox(height:8),
             Text(usedPoints<=pointsGoal?'Il reste ${pointsGoal-usedPoints} points':'Budget dépassé de ${usedPoints-pointsGoal} points'),
             if(missingPoints>0)Text('$missingPoints repas sans calories estimées : points non comptés.'),
@@ -200,7 +201,7 @@ class _DashboardState extends State<Dashboard> {
             },
           ),
           const SizedBox(height: 12),
-          const Text('Shaker après sport : 30 g whey, 15 g collagène, 5 g créatine, 300–400 ml d’eau. Enregistrer les prises séparément sans les doubler.'),
+          const Text('Pour enregistrer ton shaker : onglet Compléments → « Shaker pris aujourd’hui ». Une seule case coche les trois compléments.'),
         ],
       );
     },
@@ -364,7 +365,7 @@ class Meals extends StatelessWidget{final VoidCallback reload;const Meals({super
  });
 },icon:const Icon(Icons.local_pizza),label:const Text('Ma pizza maison')),
 TextButton.icon(onPressed:() async{
- final product=await Navigator.of(ctx).push<FoodScanResult>(MaterialPageRoute(builder:(_)=>const FoodBarcodeScanner()));
+ final product=await Navigator.of(ctx).push<FoodScanResult>(MaterialPageRoute(builder:(_)=>FoodBarcodeScanner(db:Store.db)));
  if(product==null||!ctx.mounted)return;
  final gramsController=TextEditingController(text:product.grams.toStringAsFixed(0));
  final grams=await showDialog<double>(context:ctx,builder:(dialog)=>AlertDialog(title:Text(product.name),content:Column(mainAxisSize:MainAxisSize.min,children:[
@@ -417,14 +418,14 @@ class _SupplementsState extends State<Supplements> {
    final name=(r['name'] as String).toLowerCase();
    return name.contains('whey')||name.contains('créatine')||name.contains('collagène');
   }).toList();
-  final shakerDone=shaker.isNotEmpty&&shaker.every((r)=>taken.contains(r['id']));
+  final shakerDone=shaker.length==3&&shaker.every((r)=>taken.contains(r['id']));
   return ListView(padding:const EdgeInsets.all(12),children:[
    Card(child:SwitchListTile(
     secondary:const Icon(Icons.local_drink_outlined),
     title:const Text('Shaker pris aujourd’hui'),
     subtitle:const Text('Whey 30 g + collagène 15 g + créatine 5 g. Coche les trois prises ensemble.'),
     value:shakerDone,
-    onChanged:shaker.isEmpty?null:(v)async{
+    onChanged:shaker.length!=3?null:(v)async{
      for(final r in shaker){await mark(r,v);}
      changed();
     },
