@@ -102,19 +102,21 @@ Future<void> editForm(BuildContext context, String title,
   );
 }
 
-class Dashboard extends StatelessWidget {
+class Dashboard extends StatefulWidget {
   const Dashboard({super.key});
+  @override State<Dashboard> createState() => _DashboardState();
+}
+class _DashboardState extends State<Dashboard> {
+  late final Future<List<List<Map<String, Object?>>>> data;
+  @override void initState() { super.initState(); data = Future.wait([Store.all('measures',order:'date DESC'),Store.all('meals',order:'date DESC'),Store.all('settings')]); }
   @override
-  Widget build(BuildContext context) => FutureBuilder(
-    future: Future.wait([
-      Store.all('measures', order: 'date DESC'),
-      Store.all('meals', order: 'date DESC'),
-      Store.all('settings'),
-    ]),
+  Widget build(BuildContext context) => FutureBuilder<List<List<Map<String, Object?>>>>(
+    future: data,
+    // Cached future prevents restarting SQLite reads on every frame.
+    
     builder: (context, snapshot) {
-      if (!snapshot.hasData) {
-        return const Center(child: CircularProgressIndicator());
-      }
+      if (snapshot.hasError) { return Center(child: Padding(padding: const EdgeInsets.all(20),child:Text('Impossible de charger l’accueil : ${snapshot.error}'))); }
+      if (!snapshot.hasData) { return const Center(child: CircularProgressIndicator()); }
       final measures = snapshot.data![0];
       final meals = snapshot.data![1]
           .where((r) => (r['date'] as String).startsWith(today())).toList();
@@ -238,8 +240,49 @@ class Measurements extends StatelessWidget {
     },
   );
 }
+const mealCategories = ['Petit-déjeuner', 'Déjeuner', 'Dîner', 'Collation'];
+/// Values per 100 g, approximate. A weighed portion improves reliability.
+const foodReference = <String, (double,double,double,double)>{
+  'riz cuit': (130,2.7,28,0.3),
+  'pâtes cuites': (155,5.8,30,0.9),
+  'poulet': (165,31,0,3.6),
+  'saumon': (208,20,0,13),
+  'oeuf': (143,13,1.1,9.5),
+  'œuf': (143,13,1.1,9.5),
+  'pain': (265,9,49,3.2),
+  'banane': (89,1.1,23,0.3),
+  'pomme': (52,0.3,14,0.2),
+  'brocoli': (35,2.4,7,0.4),
+  'pomme de terre': (87,1.9,20,0.1),
+  'huile olive': (884,0,0,100),
+  'huile': (884,0,0,100),
+  'beurre': (717,0.9,0.1,81),
+  'fromage blanc': (75,8,4,3),
+  'yaourt nature': (61,3.5,4.7,3.3),
+  'flocons avoine': (389,17,66,7),
+  'whey': (377,70,8,6),
+};
+(double,double,double,double,int) estimateFoods(String input) {
+ double kcal=0,protein=0,carbs=0,fat=0;
+ int recognized=0;
+ for (final item in input.toLowerCase().split(RegExp(r'[,;\\n]+'))) {
+   final quantity=RegExp(r'(\\d+(?:[.,]\\d+)?)\\s*(?:g|grammes?)\\b').firstMatch(item);
+   if(quantity==null) continue;
+   final grams=double.tryParse(quantity.group(1)!.replaceAll(',','.'));
+   if(grams==null || grams<=0) continue;
+   final matches=foodReference.keys.where((name)=>item.contains(name)).toList()
+      ..sort((a,b)=>b.length.compareTo(a.length));
+   if(matches.isEmpty) continue;
+   final value=foodReference[matches.first]!;
+   final factor=grams/100;
+   kcal+=value.$1*factor; protein+=value.$2*factor;
+   carbs+=value.$3*factor; fat+=value.$4*factor;
+   recognized++;
+ }
+ return (kcal,protein,carbs,fat,recognized);
+}
 class Meals extends StatelessWidget{final VoidCallback reload;const Meals({super.key,required this.reload});Future<void> edit(BuildContext context,[Map<String,Object?>? row]) async{String? photo=row?['photo'] as String?;final date=TextEditingController(text:row?['date'] as String? ??today()),category=TextEditingController(text:row?['category'] as String? ??'Déjeuner'),desc=TextEditingController(text:row?['description'] as String? ??''),cal=TextEditingController(text:fmt(row?['calories'])=='—'?'':fmt(row?['calories'])),pro=TextEditingController(text:fmt(row?['protein'])=='—'?'':fmt(row?['protein'])),carb=TextEditingController(text:fmt(row?['carbs'])=='—'?'':fmt(row?['carbs'])),fat=TextEditingController(text:fmt(row?['fat'])=='—'?'':fmt(row?['fat'])),unc=TextEditingController(text:row?['uncertainty'] as String? ??''),notes=TextEditingController(text:row?['notes'] as String? ??'');
- await showModalBottomSheet(context:context,isScrollControlled:true,useSafeArea:true,builder:(ctx)=>StatefulBuilder(builder:(ctx,setLocal)=>Padding(padding:EdgeInsets.fromLTRB(16,16,16,MediaQuery.of(ctx).viewInsets.bottom+MediaQuery.of(ctx).viewPadding.bottom+24),child:SingleChildScrollView(child:Column(mainAxisSize:MainAxisSize.min,children:[const Text('Repas : valeurs estimées, à vérifier'),for(final f in [('Date',date),('Catégorie',category),('Aliments et quantités',desc),('Calories (kcal)',cal),('Protéines (g)',pro),('Glucides (g)',carb),('Lipides (g)',fat),('Incertitudes',unc),('Commentaires',notes)])TextField(controller:f.$2,decoration:InputDecoration(labelText:f.$1)),Wrap(children:[TextButton.icon(onPressed:() async{final x=await ImagePicker().pickImage(source:ImageSource.camera);if(x!=null){final dir=await getApplicationDocumentsDirectory();final dest=p.join(dir.path,'meal_${DateTime.now().microsecondsSinceEpoch}${p.extension(x.path)}');await File(x.path).copy(dest);setLocal(()=>photo=dest);}},icon:const Icon(Icons.camera_alt),label:const Text('Photo')),TextButton.icon(onPressed:() async{final x=await ImagePicker().pickImage(source:ImageSource.gallery);if(x!=null){final dir=await getApplicationDocumentsDirectory();final dest=p.join(dir.path,'meal_${DateTime.now().microsecondsSinceEpoch}${p.extension(x.path)}');await File(x.path).copy(dest);setLocal(()=>photo=dest);}},icon:const Icon(Icons.photo_library),label:const Text('Galerie')),if(photo!=null)TextButton(onPressed:(){setLocal(()=>photo=null);},child:const Text('Retirer la photo'))]),FilledButton(onPressed:() async{double? numValue(TextEditingController c)=>double.tryParse(c.text.replaceAll(',','.'));final data={'date':date.text,'category':category.text,'description':desc.text,'photo':photo,'calories':numValue(cal),'protein':numValue(pro),'carbs':numValue(carb),'fat':numValue(fat),'uncertainty':unc.text,'notes':notes.text};if(row==null){await Store.db.insert('meals',data);}else{await Store.db.update('meals',data,where:'id=?',whereArgs:[row['id']]);}if(ctx.mounted)Navigator.pop(ctx);reload();},child:const Text('Valider le repas'))])))));}
+ await showModalBottomSheet(context:context,isScrollControlled:true,useSafeArea:true,builder:(ctx)=>StatefulBuilder(builder:(ctx,setLocal)=>Padding(padding:EdgeInsets.fromLTRB(16,16,16,MediaQuery.of(ctx).viewInsets.bottom+MediaQuery.of(ctx).viewPadding.bottom+24),child:SingleChildScrollView(child:Column(mainAxisSize:MainAxisSize.min,children:[const Text('Repas : valeurs estimées, à vérifier'),DropdownButtonFormField<String>(value:mealCategories.contains(category.text)?category.text:'Déjeuner',decoration:const InputDecoration(labelText:'Catégorie du repas'),items:[for(final name in mealCategories)DropdownMenuItem(value:name,child:Text(name))],onChanged:(v){if(v!=null)category.text=v;}),for(final f in [('Date',date),('Aliments et quantités, ex : poulet 150g, riz cuit 200g',desc),('Calories (kcal)',cal),('Protéines (g)',pro),('Glucides (g)',carb),('Lipides (g)',fat),('Incertitudes',unc),('Commentaires',notes)])TextField(controller:f.$2,decoration:InputDecoration(labelText:f.$1)),TextButton.icon(onPressed:(){final estimate=estimateFoods(desc.text);if(estimate.$5==0){ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(content:Text('Indiquer un aliment connu et sa quantité en grammes (ex : poulet 150g, riz cuit 200g).')));return;}setLocal((){cal.text=estimate.$1.toStringAsFixed(0);pro.text=estimate.$2.toStringAsFixed(1);carb.text=estimate.$3.toStringAsFixed(1);fat.text=estimate.$4.toStringAsFixed(1);unc.text='Estimation sur ${estimate.$5} aliment(s) reconnus ; vérifier ingrédients, huile et portions.';});},icon:const Icon(Icons.calculate_outlined),label:const Text('Estimer les calories et macros')),const Text('La photo sert de référence visuelle. Analyse automatique par IA non activée.'),Wrap(children:[TextButton.icon(onPressed:() async{final x=await ImagePicker().pickImage(source:ImageSource.camera);if(x!=null){final dir=await getApplicationDocumentsDirectory();final dest=p.join(dir.path,'meal_${DateTime.now().microsecondsSinceEpoch}${p.extension(x.path)}');await File(x.path).copy(dest);setLocal(()=>photo=dest);}},icon:const Icon(Icons.camera_alt),label:const Text('Photo')),TextButton.icon(onPressed:() async{final x=await ImagePicker().pickImage(source:ImageSource.gallery);if(x!=null){final dir=await getApplicationDocumentsDirectory();final dest=p.join(dir.path,'meal_${DateTime.now().microsecondsSinceEpoch}${p.extension(x.path)}');await File(x.path).copy(dest);setLocal(()=>photo=dest);}},icon:const Icon(Icons.photo_library),label:const Text('Galerie')),if(photo!=null)TextButton(onPressed:(){setLocal(()=>photo=null);},child:const Text('Retirer la photo'))]),FilledButton(onPressed:() async{double? numValue(TextEditingController c)=>double.tryParse(c.text.replaceAll(',','.'));final data={'date':date.text,'category':category.text,'description':desc.text,'photo':photo,'calories':numValue(cal),'protein':numValue(pro),'carbs':numValue(carb),'fat':numValue(fat),'uncertainty':unc.text,'notes':notes.text};if(row==null){await Store.db.insert('meals',data);}else{await Store.db.update('meals',data,where:'id=?',whereArgs:[row['id']]);}if(ctx.mounted)Navigator.pop(ctx);reload();},child:const Text('Valider le repas'))])))));}
  @override Widget build(BuildContext context)=>FutureBuilder(future:Store.all('meals',order:'date DESC'),builder:(c,s)=>Column(children:[Expanded(child:ListView(children:[for(final r in s.data??<Map<String,Object?>>[])ListTile(leading:r['photo']!=null&&File(r['photo'] as String).existsSync()?Image.file(File(r['photo'] as String),width:55,height:55,fit:BoxFit.cover):const Icon(Icons.restaurant),title:Text('${r['category']} • ${r['date']}'),subtitle:Text('${r['description']}\n${fmt(r['calories'])} kcal estimées'),isThreeLine:true,onTap:()=>edit(context,r),trailing:PopupMenuButton<String>(onSelected:(v) async{if(v=='duplicate'){final data=Map<String,Object?>.from(r)..remove('id');data['date']=today();await Store.db.insert('meals',data);}else if(v=='delete'){await Store.db.delete('meals',where:'id=?',whereArgs:[r['id']]);}else if(v=='photo'){await Store.db.update('meals',{'photo':null},where:'id=?',whereArgs:[r['id']]);}reload();},itemBuilder:(_)=>const [PopupMenuItem(value:'duplicate',child:Text('Dupliquer')),PopupMenuItem(value:'photo',child:Text('Retirer la photo')),PopupMenuItem(value:'delete',child:Text('Supprimer'))]))])),FilledButton.icon(onPressed:()=>edit(context),icon:const Icon(Icons.add),label:const Text('Ajouter un repas'))]));
 }
 class Supplements extends StatelessWidget{final VoidCallback reload;const Supplements({super.key,required this.reload});@override Widget build(BuildContext context)=>FutureBuilder(future:Future.wait([Store.all('supplements'),Store.all('intakes')]),builder:(c,s){if(!s.hasData)return const Center(child:CircularProgressIndicator());final taken=s.data![1].where((r)=>r['date']==today()).map((r)=>r['supplement_id']).toSet();return ListView(children:[for(final r in s.data![0])SwitchListTile(title:Text('${r['name']} • ${r['dose']}'),subtitle:Text('${r['brand']}\n${r['details']}'),isThreeLine:true,value:taken.contains(r['id']),onChanged:r['active']==0?null:(v) async{if(v){await Store.db.insert('intakes',{'supplement_id':r['id'],'date':today()});}else{await Store.db.delete('intakes',where:'supplement_id=? AND date=?',whereArgs:[r['id'],today()]);}reload();},secondary:IconButton(icon:const Icon(Icons.edit),onPressed:() async{final dose=TextEditingController(text:fmt(r['dose'])),details=TextEditingController(text:fmt(r['details']));await editForm(context,'Modifier le complément',[('Dose',dose),('Composition / notes',details)],() async{await Store.db.update('supplements',{'dose':dose.text,'details':details.text},where:'id=?',whereArgs:[r['id']]);reload();});}))]);});}
