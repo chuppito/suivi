@@ -281,46 +281,58 @@ class Measurements extends StatelessWidget {
 const mealCategories = ['Petit-déjeuner', 'Déjeuner', 'Dîner', 'Collation'];
 /// Values per 100 g, approximate. A weighed portion improves reliability.
 const foodReference = <String, (double,double,double,double)>{
-  'riz cuit': (130,2.7,28,0.3),
-  'pâtes cuites': (155,5.8,30,0.9),
-  'poulet': (165,31,0,3.6),
-  'saumon': (208,20,0,13),
-  'oeuf': (143,13,1.1,9.5),
-  'œuf': (143,13,1.1,9.5),
-  'pain': (265,9,49,3.2),
-  'banane': (89,1.1,23,0.3),
-  'pomme': (52,0.3,14,0.2),
-  'brocoli': (35,2.4,7,0.4),
-  'pomme de terre': (87,1.9,20,0.1),
-  'huile olive': (884,0,0,100),
-  'huile': (884,0,0,100),
-  'beurre': (717,0.9,0.1,81),
-  'fromage blanc': (75,8,4,3),
-  'yaourt nature': (61,3.5,4.7,3.3),
-  'flocons avoine': (389,17,66,7),
-  'whey': (377,70,8,6),
+ 'lait entier':(64,3.2,4.8,3.6),'nesquik':(380,4.5,80,3.5),
+ 'miel':(304,0.3,82,0),'pain de campagne':(255,8.5,50,1.5),
+ 'pain':(265,9,49,3.2),'riz cuit':(130,2.7,28,0.3),
+ 'pâtes cuites':(155,5.8,30,0.9),'poulet':(165,31,0,3.6),
+ 'saumon':(208,20,0,13),'oeuf':(143,13,1.1,9.5),
+ 'œuf':(143,13,1.1,9.5),'banane':(89,1.1,23,0.3),
+ 'pomme de terre':(87,1.9,20,0.1),'pomme':(52,0.3,14,0.2),
+ 'brocoli':(35,2.4,7,0.4),'huile olive':(884,0,0,100),
+ 'huile':(884,0,0,100),'beurre':(717,0.9,0.1,81),
+ 'fromage blanc':(75,8,4,3),'yaourt nature':(61,3.5,4.7,3.3),
+ 'flocons avoine':(389,17,66,7),'whey':(377,70,8,6),
 };
+/// Approximations: teaspoon 5 ml, tablespoon 15 ml, glass 200 ml,
+/// bowl 250 ml, small bread slice 25 g. Density depends on food.
+double? estimateGrams(String item,String food) {
+ final explicit=RegExp(r'(\d+(?:[.,]\d+)?)\s*(kg|g|grammes?|ml|cl|l)\b').firstMatch(item);
+ if(explicit!=null){
+  final n=double.parse(explicit.group(1)!.replaceAll(',','.'));
+  switch(explicit.group(2)){case 'kg':return n*1000;case 'cl':return n*10;case 'l':return n*1000;default:return n;}
+ }
+ final qty=RegExp(r'(\d+(?:[.,]\d+)?)').firstMatch(item);
+ final count=qty==null?1.0:double.parse(qty.group(1)!.replaceAll(',','.'));
+ if(RegExp(r'cuill[eè]res?\s+[àa]\s+caf[eé]|c\.?\s*[àa]\s*c\.?').hasMatch(item)){
+   return count*(food.contains('nesquik')?5:food.contains('miel')?7:food.contains('beurre')?5:5);
+ }
+ if(RegExp(r'cuill[eè]res?\s+[àa]\s+soupe|c\.?\s*[àa]\s*s\.?').hasMatch(item)){
+   return count*(food.contains('nesquik')?12:food.contains('miel')?21:food.contains('beurre')?14:15);
+ }
+ if(RegExp(r'bols?\b').hasMatch(item))return count*250;
+ if(RegExp(r'verres?\b').hasMatch(item))return count*200;
+ if(RegExp(r'tranches?\b').hasMatch(item))return count*(food.contains('pain')?25:25);
+ return null;
+}
 (double,double,double,double,int) estimateFoods(String input) {
  double kcal=0,protein=0,carbs=0,fat=0;
  int recognized=0;
- for (final item in input.toLowerCase().split(RegExp(r'[,;\n]+'))) {
-   final quantity=RegExp(r'(\d+(?:[.,]\d+)?)\s*(?:g|grammes?)\b').firstMatch(item);
-   if(quantity==null) continue;
-   final grams=double.tryParse(quantity.group(1)!.replaceAll(',','.'));
-   if(grams==null || grams<=0) continue;
-   final matches=foodReference.keys.where((name)=>item.contains(name)).toList()
-      ..sort((a,b)=>b.length.compareTo(a.length));
-   if(matches.isEmpty) continue;
-   final value=foodReference[matches.first]!;
-   final factor=grams/100;
-   kcal+=value.$1*factor; protein+=value.$2*factor;
-   carbs+=value.$3*factor; fat+=value.$4*factor;
-   recognized++;
+ for(final raw in input.toLowerCase().split(RegExp(r'[,;\n]+'))){
+  final item=raw.trim();
+  final names=foodReference.keys.where((name)=>item.contains(name)).toList()
+    ..sort((a,b)=>b.length.compareTo(a.length));
+  if(names.isEmpty)continue;
+  final grams=estimateGrams(item,names.first);
+  if(grams==null||grams<=0)continue;
+  final values=foodReference[names.first]!,factor=grams/100;
+  kcal+=values.$1*factor;protein+=values.$2*factor;
+  carbs+=values.$3*factor;fat+=values.$4*factor;recognized++;
  }
  return (kcal,protein,carbs,fat,recognized);
 }
+
 class Meals extends StatelessWidget{final VoidCallback reload;const Meals({super.key,required this.reload});Future<void> edit(BuildContext context,[Map<String,Object?>? row]) async{String? photo=row?['photo'] as String?;final date=TextEditingController(text:row?['date'] as String? ??today()),category=TextEditingController(text:row?['category'] as String? ??'Déjeuner'),desc=TextEditingController(text:row?['description'] as String? ??''),cal=TextEditingController(text:fmt(row?['calories'])=='—'?'':fmt(row?['calories'])),pro=TextEditingController(text:fmt(row?['protein'])=='—'?'':fmt(row?['protein'])),carb=TextEditingController(text:fmt(row?['carbs'])=='—'?'':fmt(row?['carbs'])),fat=TextEditingController(text:fmt(row?['fat'])=='—'?'':fmt(row?['fat'])),unc=TextEditingController(text:row?['uncertainty'] as String? ??''),notes=TextEditingController(text:row?['notes'] as String? ??'');
- await showModalBottomSheet(context:context,isScrollControlled:true,useSafeArea:true,builder:(ctx)=>StatefulBuilder(builder:(ctx,setLocal)=>Padding(padding:EdgeInsets.fromLTRB(16,16,16,MediaQuery.of(ctx).viewInsets.bottom+MediaQuery.of(ctx).viewPadding.bottom+24),child:SingleChildScrollView(child:Column(mainAxisSize:MainAxisSize.min,children:[const Text('Repas : valeurs estimées, à vérifier'),DropdownButtonFormField<String>(value:mealCategories.contains(category.text)?category.text:'Déjeuner',decoration:const InputDecoration(labelText:'Catégorie du repas'),items:[for(final name in mealCategories)DropdownMenuItem(value:name,child:Text(name))],onChanged:(v){if(v!=null)category.text=v;}),for(final f in [('Date',date),('Aliments et quantités, ex : poulet 150g, riz cuit 200g',desc),('Calories (kcal)',cal),('Protéines (g)',pro),('Glucides (g)',carb),('Lipides (g)',fat),('Incertitudes',unc),('Commentaires',notes)])TextField(controller:f.$2,decoration:InputDecoration(labelText:f.$1)),TextButton.icon(onPressed:(){final estimate=estimateFoods(desc.text);if(estimate.$5==0){ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(content:Text('Indiquer un aliment connu et sa quantité en grammes (ex : poulet 150g, riz cuit 200g).')));return;}setLocal((){cal.text=estimate.$1.toStringAsFixed(0);pro.text=estimate.$2.toStringAsFixed(1);carb.text=estimate.$3.toStringAsFixed(1);fat.text=estimate.$4.toStringAsFixed(1);unc.text='Estimation PARTIELLE sur ${estimate.$5} aliment(s) reconnus ; tous les autres ingrédients ne sont pas comptés. Vérifier et compléter avant enregistrement.';});},icon:const Icon(Icons.calculate_outlined),label:const Text('Estimer les calories et macros')),const Text('La photo sert de référence visuelle. Analyse automatique par IA non activée.'),Wrap(children:[TextButton.icon(onPressed:() async{final x=await ImagePicker().pickImage(source:ImageSource.camera);if(x!=null){final dir=await getApplicationDocumentsDirectory();final dest=p.join(dir.path,'meal_${DateTime.now().microsecondsSinceEpoch}${p.extension(x.path)}');await File(x.path).copy(dest);setLocal(()=>photo=dest);}},icon:const Icon(Icons.camera_alt),label:const Text('Photo')),TextButton.icon(onPressed:() async{final x=await ImagePicker().pickImage(source:ImageSource.gallery);if(x!=null){final dir=await getApplicationDocumentsDirectory();final dest=p.join(dir.path,'meal_${DateTime.now().microsecondsSinceEpoch}${p.extension(x.path)}');await File(x.path).copy(dest);setLocal(()=>photo=dest);}},icon:const Icon(Icons.photo_library),label:const Text('Galerie')),if(photo!=null)TextButton(onPressed:(){setLocal(()=>photo=null);},child:const Text('Retirer la photo'))]),FilledButton(onPressed:() async{double? numValue(TextEditingController c)=>double.tryParse(c.text.replaceAll(',','.'));final estimate=estimateFoods(desc.text);
+ await showModalBottomSheet(context:context,isScrollControlled:true,useSafeArea:true,builder:(ctx)=>StatefulBuilder(builder:(ctx,setLocal)=>Padding(padding:EdgeInsets.fromLTRB(16,16,16,MediaQuery.of(ctx).viewInsets.bottom+MediaQuery.of(ctx).viewPadding.bottom+24),child:SingleChildScrollView(child:Column(mainAxisSize:MainAxisSize.min,children:[const Text('Repas : valeurs estimées, à vérifier'),DropdownButtonFormField<String>(value:mealCategories.contains(category.text)?category.text:'Déjeuner',decoration:const InputDecoration(labelText:'Catégorie du repas'),items:[for(final name in mealCategories)DropdownMenuItem(value:name,child:Text(name))],onChanged:(v){if(v!=null)category.text=v;}),for(final f in [('Date',date),('Aliments et portions (ex : lait entier 1 bol, nesquik 2 cuillères à café)',desc),('Calories (kcal)',cal),('Protéines (g)',pro),('Glucides (g)',carb),('Lipides (g)',fat),('Incertitudes',unc),('Commentaires',notes)])TextField(controller:f.$2,decoration:InputDecoration(labelText:f.$1)),TextButton.icon(onPressed:(){final estimate=estimateFoods(desc.text);if(estimate.$5==0){ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(content:Text('Indiquer un aliment et sa portion (ex : lait entier 1 bol, nesquik 2 cuillères à café, pain 4 tranches).')));return;}setLocal((){cal.text=estimate.$1.toStringAsFixed(0);pro.text=estimate.$2.toStringAsFixed(1);carb.text=estimate.$3.toStringAsFixed(1);fat.text=estimate.$4.toStringAsFixed(1);unc.text='Estimation PARTIELLE sur ${estimate.$5} aliment(s) reconnus ; tous les autres ingrédients ne sont pas comptés. Vérifier et compléter avant enregistrement.';});},icon:const Icon(Icons.calculate_outlined),label:const Text('Estimer les calories et macros')),const Text('Portions indicatives : cuillère à café 5 ml, cuillère à soupe 15 ml, bol 250 ml, verre 200 ml, petite tranche de pain 25 g. Les poids réels varient selon l’aliment. L’analyse photo par IA nécessite un service en ligne sécurisé.'),Wrap(children:[TextButton.icon(onPressed:() async{final x=await ImagePicker().pickImage(source:ImageSource.camera);if(x!=null){final dir=await getApplicationDocumentsDirectory();final dest=p.join(dir.path,'meal_${DateTime.now().microsecondsSinceEpoch}${p.extension(x.path)}');await File(x.path).copy(dest);setLocal(()=>photo=dest);}},icon:const Icon(Icons.camera_alt),label:const Text('Photo')),TextButton.icon(onPressed:() async{final x=await ImagePicker().pickImage(source:ImageSource.gallery);if(x!=null){final dir=await getApplicationDocumentsDirectory();final dest=p.join(dir.path,'meal_${DateTime.now().microsecondsSinceEpoch}${p.extension(x.path)}');await File(x.path).copy(dest);setLocal(()=>photo=dest);}},icon:const Icon(Icons.photo_library),label:const Text('Galerie')),if(photo!=null)TextButton(onPressed:(){setLocal(()=>photo=null);},child:const Text('Retirer la photo'))]),FilledButton(onPressed:() async{double? numValue(TextEditingController c)=>double.tryParse(c.text.replaceAll(',','.'));final estimate=estimateFoods(desc.text);
  if(estimate.$5==0 && numValue(cal)==null){ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(content:Text('Renseigne les calories ou des aliments avec leurs quantités.')));return;}
  final data={'date':date.text,'category':category.text,'description':desc.text,'photo':photo,'calories':numValue(cal),'protein':numValue(pro),'carbs':numValue(carb),'fat':numValue(fat),'uncertainty':unc.text,'notes':notes.text};if(row==null){await Store.db.insert('meals',data);}else{await Store.db.update('meals',data,where:'id=?',whereArgs:[row['id']]);}if(ctx.mounted)Navigator.pop(ctx);reload();},child:const Text('Valider le repas'))])))));}
  @override Widget build(BuildContext context)=>FutureBuilder(future:Store.all('meals',order:'date DESC'),builder:(c,s)=>Column(children:[Expanded(child:ListView(children:[for(final r in s.data??<Map<String,Object?>>[])ListTile(leading:r['photo']!=null&&File(r['photo'] as String).existsSync()?Image.file(File(r['photo'] as String),width:55,height:55,fit:BoxFit.cover):const Icon(Icons.restaurant),title:Text('${r['category']} • ${r['date']}'),subtitle:Text('${r['description']}\n${fmt(r['calories'])} kcal estimées • ${mealPoints(r)?.toString() ?? '—'} points'),isThreeLine:true,onTap:()=>edit(context,r),trailing:PopupMenuButton<String>(onSelected:(v) async{if(v=='duplicate'){final data=Map<String,Object?>.from(r)..remove('id');data['date']=today();await Store.db.insert('meals',data);}else if(v=='delete'){await Store.db.delete('meals',where:'id=?',whereArgs:[r['id']]);}else if(v=='photo'){await Store.db.update('meals',{'photo':null},where:'id=?',whereArgs:[r['id']]);}reload();},itemBuilder:(_)=>const [PopupMenuItem(value:'duplicate',child:Text('Dupliquer')),PopupMenuItem(value:'photo',child:Text('Retirer la photo')),PopupMenuItem(value:'delete',child:Text('Supprimer'))]))])),FilledButton.icon(onPressed:()=>edit(context),icon:const Icon(Icons.add),label:const Text('Ajouter un repas'))]));
