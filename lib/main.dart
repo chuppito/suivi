@@ -265,8 +265,8 @@ const foodReference = <String, (double,double,double,double)>{
 (double,double,double,double,int) estimateFoods(String input) {
  double kcal=0,protein=0,carbs=0,fat=0;
  int recognized=0;
- for (final item in input.toLowerCase().split(RegExp(r'[,;\\n]+'))) {
-   final quantity=RegExp(r'(\\d+(?:[.,]\\d+)?)\\s*(?:g|grammes?)\\b').firstMatch(item);
+ for (final item in input.toLowerCase().split(RegExp(r'[,;\n]+'))) {
+   final quantity=RegExp(r'(\d+(?:[.,]\d+)?)\s*(?:g|grammes?)\b').firstMatch(item);
    if(quantity==null) continue;
    final grams=double.tryParse(quantity.group(1)!.replaceAll(',','.'));
    if(grams==null || grams<=0) continue;
