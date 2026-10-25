@@ -36,7 +36,7 @@ class _PizzaRecipePickerState extends State<PizzaRecipePicker> {
   double? value(TextEditingController c)=>double.tryParse(c.text.replaceAll(',','.'));
   final d=value(dough),sa=value(sauce),mo=value(mozzarella),em=value(emmental),ch=value(cheddar);
   if([d,sa,mo,em,ch].any((v)=>v==null||v<0)||d==0){ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content:Text('Vérifier les quantités.')));return;}
-  final parts=<String>['pâte pizza maison ${d!.toStringAsFixed(0)}g',if(sa!>0)'${cream?'crème liquide':'sauce mutti pizza'} ${sa.toStringAsFixed(0)}g',if(mo!>0)'mozzarella ${mo.toStringAsFixed(0)}g',if(em!>0)'emmental ${em.toStringAsFixed(0)}g',if(ch!>0)'cheddar ${ch.toStringAsFixed(0)}g',if(extras.text.trim().isNotEmpty)extras.text.trim()];
+  final parts=<String>['pâte pizza maison ${d!.toStringAsFixed(0)}g',if(sa!>0)'${cream?'crème liquide':'sauce mutti pizza'} ${sa!.toStringAsFixed(0)}g',if(mo!>0)'mozzarella ${mo!.toStringAsFixed(0)}g',if(em!>0)'emmental ${em!.toStringAsFixed(0)}g',if(ch!>0)'cheddar ${ch!.toStringAsFixed(0)}g',if(extras.text.trim().isNotEmpty)extras.text.trim()];
   Navigator.pop(context,PizzaSelection(parts.join(', ')));
  },child:const Text('Utiliser'))]);
 }
