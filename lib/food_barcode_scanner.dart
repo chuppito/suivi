@@ -73,7 +73,7 @@ class _FoodBarcodeScannerState extends State<FoodBarcodeScanner> {
     if(name.text.trim().length>=2)...[
      for(final candidate in candidates.where((p)=>p['name'].toString().toLowerCase().contains(name.text.trim().toLowerCase())).take(4))
       ListTile(title:Text(candidate['name'].toString()),subtitle:const Text('Réutiliser la fiche enregistrée'),onTap:()async{
-       await widget.db.update('food_library',{'barcode':code},where:'id=?',whereArgs:[candidate['id']]);
+       await widget.db.insert('food_library',{'barcode':code,'name':candidate['name'],'kcal':candidate['kcal'],'protein':candidate['protein'],'carbs':candidate['carbs'],'fat':candidate['fat']},conflictAlgorithm:ConflictAlgorithm.replace);
        if(ctx.mounted)Navigator.pop(ctx);
        if(mounted)showProduct(candidate);
       }),
