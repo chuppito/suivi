@@ -382,16 +382,16 @@ class Meals extends StatelessWidget{final VoidCallback reload;const Meals({super
  if(ctx.mounted)setLocal((){});
 },icon:const Icon(Icons.history),label:const Text('Historique des produits')),
 TextButton.icon(onPressed:() async{
- final selected=await showDialog<PizzaSelection>(context:ctx,builder:(_)=>const PizzaRecipePicker());
+ final selected=await showDialog<PizzaSelection>(context:ctx,builder:(_)=>PizzaRecipePicker(db:Store.db));
  if(selected==null||!ctx.mounted)return;
  final estimate=estimateFoods(selected.description),missing=describeEstimate(selected.description);
  setLocal((){
-  category.text='Déjeuner';
+  category.text='Dîner';
   desc.text=selected.description;
-  cal.text=(estimate.$1*1.1).ceil().toString();
-  pro.text=estimate.$2.toStringAsFixed(1);
-  carb.text=estimate.$3.toStringAsFixed(1);
-  fat.text=estimate.$4.toStringAsFixed(1);
+  cal.text=((estimate.$1+selected.kcal)*1.1).ceil().toString();
+  pro.text=(estimate.$2+selected.protein).toStringAsFixed(1);
+  carb.text=(estimate.$3+selected.carbs).toStringAsFixed(1);
+  fat.text=(estimate.$4+selected.fat).toStringAsFixed(1);
   unc.text='Pizza maison : estimation haute (+10 %), corniche comprise. ${missing.$1.isNotEmpty ? 'Ingrédients non reconnus : ${missing.$1}.' : ''}';
  });
 },icon:const Icon(Icons.local_pizza),label:const Text('Ma pizza maison')),
