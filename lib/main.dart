@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'food_barcode_scanner.dart';
+import 'pizza_recipe_picker.dart';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:sqflite/sqflite.dart';
@@ -282,7 +283,7 @@ class Measurements extends StatelessWidget {
 const mealCategories = ['Petit-déjeuner', 'Déjeuner', 'Dîner', 'Collation'];
 /// Values per 100 g, approximate. A weighed portion improves reliability.
 const foodReference = <String, (double,double,double,double)>{
- 'pâton pizza maison':(227,7.4,46,1.3),'pate pizza maison':(227,7.4,46,1.3),'pâte pizza maison':(227,7.4,46,1.3),'sauce mutti pizza':(40,1.8,6.6,0.5),'mozzarella':(260,18,2,20),'emmental':(380,28,0,29),'cheddar':(400,25,1.3,33),'lait entier':(64,3.2,4.8,3.6),'nesquik':(380,4.5,80,3.5),
+ 'pâton pizza maison':(227,7.4,46,1.3),'pate pizza maison':(227,7.4,46,1.3),'pâte pizza maison':(227,7.4,46,1.3),'sauce mutti pizza':(40,1.8,6.6,0.5),'mozzarella':(260,18,2,20),'emmental':(380,28,0,29),'cheddar':(400,25,1.3,33),'crème liquide':(300,2,3,30),'creme liquide':(300,2,3,30),'lait demi-écrémé':(47,3.3,4.8,1.6),'lait':(64,3.2,4.8,3.6),'jambon':(120,20,1,4),'champignons':(22,3,3,0.3),'lardons':(300,16,1,26),'oignon':(40,1.1,9,0.1),'tomate':(18,0.9,3.9,0.2),'lait entier':(64,3.2,4.8,3.6),'nesquik':(380,4.5,80,3.5),
  'miel':(304,0.3,82,0),'pain de campagne':(255,8.5,50,1.5),
  'pain':(265,9,49,3.2),'riz cuit':(130,2.7,28,0.3),
  'pâtes cuites':(155,5.8,30,0.9),'poulet':(165,31,0,3.6),
@@ -308,7 +309,7 @@ double? estimateGrams(String item,String food) {
  if(RegExp(r'cuill[eè]res?\s+(?:[àa]\s+)?caf[eé]|c\.?\s*[àa]\s*c\.?').hasMatch(item)){
   return count*(food.contains('nesquik')?6:food.contains('miel')?8:food.contains('beurre')?6:5);
  }
- if(RegExp(r'cuill[eè]res?\s+(?:[àa]\s+)?soupe|c\.?\s*[àa]\s*s\.?').hasMatch(item)){
+ if(RegExp(r'cuill[eè]res?\s+(?:[àa]\s+)?(?:soupe|de)|c\.?\s*[àa]\s*s\.?').hasMatch(item)){
   return count*(food.contains('nesquik')?15:food.contains('miel')?22:food.contains('beurre')?15:15);
  }
  if(RegExp(r'bols?\b').hasMatch(item))return count*250;
@@ -349,6 +350,20 @@ String normalizeMealDescription(String input) {
 
 class Meals extends StatelessWidget{final VoidCallback reload;const Meals({super.key,required this.reload});Future<void> edit(BuildContext context,[Map<String,Object?>? row]) async{String? photo=row?['photo'] as String?;final date=TextEditingController(text:row?['date'] as String? ??today()),category=TextEditingController(text:row?['category'] as String? ??'Déjeuner'),desc=TextEditingController(text:row?['description'] as String? ??''),cal=TextEditingController(text:fmt(row?['calories'])=='—'?'':fmt(row?['calories'])),pro=TextEditingController(text:fmt(row?['protein'])=='—'?'':fmt(row?['protein'])),carb=TextEditingController(text:fmt(row?['carbs'])=='—'?'':fmt(row?['carbs'])),fat=TextEditingController(text:fmt(row?['fat'])=='—'?'':fmt(row?['fat'])),unc=TextEditingController(text:row?['uncertainty'] as String? ??''),notes=TextEditingController(text:row?['notes'] as String? ??'');
  await showModalBottomSheet(context:context,isScrollControlled:true,useSafeArea:true,builder:(ctx)=>StatefulBuilder(builder:(ctx,setLocal)=>Padding(padding:EdgeInsets.fromLTRB(16,16,16,MediaQuery.of(ctx).viewInsets.bottom+MediaQuery.of(ctx).viewPadding.bottom+24),child:SingleChildScrollView(child:Column(mainAxisSize:MainAxisSize.min,children:[const Text('Repas : valeurs estimées, à vérifier'),DropdownButtonFormField<String>(value:mealCategories.contains(category.text)?category.text:'Déjeuner',decoration:const InputDecoration(labelText:'Catégorie du repas'),items:[for(final name in mealCategories)DropdownMenuItem(value:name,child:Text(name))],onChanged:(v){if(v!=null)category.text=v;}),for(final f in [('Date',date),('Aliments et portions (ex : lait entier 1 bol, nesquik 2 cuillères à café)',desc),('Calories (kcal)',cal),('Protéines (g)',pro),('Glucides (g)',carb),('Lipides (g)',fat),('Incertitudes',unc),('Commentaires',notes)])TextField(controller:f.$2,decoration:InputDecoration(labelText:f.$1)),TextButton.icon(onPressed:() async{
+ final selected=await showDialog<PizzaSelection>(context:ctx,builder:(_)=>const PizzaRecipePicker());
+ if(selected==null||!ctx.mounted)return;
+ final estimate=estimateFoods(selected.description),missing=describeEstimate(selected.description);
+ setLocal((){
+  category.text='Déjeuner';
+  desc.text=selected.description;
+  cal.text=(estimate.$1*1.1).ceil().toString();
+  pro.text=estimate.$2.toStringAsFixed(1);
+  carb.text=estimate.$3.toStringAsFixed(1);
+  fat.text=estimate.$4.toStringAsFixed(1);
+  unc.text='Pizza maison : estimation haute (+10 %), corniche comprise. ${missing.$1.isNotEmpty ? 'Ingrédients non reconnus : ${missing.$1}.' : ''}';
+ });
+},icon:const Icon(Icons.local_pizza),label:const Text('Ma pizza maison')),
+TextButton.icon(onPressed:() async{
  final product=await Navigator.of(ctx).push<FoodScanResult>(MaterialPageRoute(builder:(_)=>const FoodBarcodeScanner()));
  if(product==null||!ctx.mounted)return;
  final gramsController=TextEditingController(text:product.grams.toStringAsFixed(0));
@@ -356,7 +371,7 @@ class Meals extends StatelessWidget{final VoidCallback reload;const Meals({super
  Text('Valeurs pour 100 g : '+product.kcal.toStringAsFixed(0)+' kcal.'),
  TextField(controller:gramsController,keyboardType:TextInputType.number,decoration:const InputDecoration(labelText:'Quantité mangée (g)')),
  ]),actions:[TextButton(onPressed:()=>Navigator.pop(dialog),child:const Text('Annuler')),FilledButton(onPressed:()=>Navigator.pop(dialog,double.tryParse(gramsController.text.replaceAll(',','.'))),child:const Text('Utiliser'))]));
- gramsController.dispose();
+ // Le dialogue peut encore terminer son animation : ne pas disposer le contrôleur trop tôt.
  if(grams==null||grams<=0||!ctx.mounted)return;
  final factor=grams/100;
  setLocal((){
