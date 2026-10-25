@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'food_barcode_scanner.dart';
 import 'pizza_recipe_picker.dart';
+import 'product_history.dart';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:sqflite/sqflite.dart';
@@ -40,7 +41,7 @@ class Store {
  static Future<List<Map<String,Object?>>> all(String table,{String order='id DESC'})=>db.query(table,orderBy:table=='settings'?'key ASC':order);
  static Future<void> export() async {
   final data=<String,dynamic>{'schema':1};
-  for(final t in ['measures','meals','supplements','intakes','activities','settings']){data[t]=await all(t);}
+  for(final t in ['measures','meals','supplements','intakes','activities','settings','food_library']){data[t]=await all(t);}
   final dir=await getTemporaryDirectory();final file=File(p.join(dir.path,'nutrition_sauvegarde.json'));
   await file.writeAsString(jsonEncode(data));await Share.shareXFiles([XFile(file.path)],text:'Sauvegarde Suivi Nutrition');
  }
@@ -50,7 +51,7 @@ class Store {
   final data=jsonDecode(await File(result.files.single.path!).readAsString()) as Map<String,dynamic>;
   if(data['schema']!=1)throw const FormatException('Format de sauvegarde incompatible');
   await db.transaction((tx) async {for(final t in ['measures','meals','supplements','intakes','activities','settings']){
-   final rows=data[t];if(rows is! List)throw const FormatException('Sauvegarde incomplète');
+   final rows=data[t];if(rows is! List){if(t=='food_library')continue;throw const FormatException('Sauvegarde incomplète');}
    await tx.delete(t);for(final row in rows){await tx.insert(t,Map<String,Object?>.from(row as Map));}
   }});
  }
@@ -143,6 +144,17 @@ class _DashboardState extends State<Dashboard> {
       final goal = goalSetting.isEmpty ? 2350 : int.tryParse(goalSetting.first['value'] as String? ?? '');
       final pointsGoalRow = snapshot.data![2].where((row)=>row['key']=='points_goal');
       final pointsGoal = pointsGoalRow.isEmpty ? 48 : (int.tryParse(pointsGoalRow.first['value'] as String? ?? '') ?? 48);
+      final now=DateTime.now();
+      final monday=DateTime(now.year,now.month,now.day).subtract(Duration(days:now.weekday-1));
+      final sunday=monday.add(const Duration(days:6));
+      final mondayKey=monday.toIso8601String().substring(0,10);
+      final sundayKey=sunday.toIso8601String().substring(0,10);
+      final weeklyMeals=snapshot.data![1].where((r){
+       final d=r['date']?.toString()??'';
+       return d.compareTo(mondayKey)>=0&&d.compareTo(sundayKey)<=0;
+      }).toList();
+      final weeklyCalories=weeklyMeals.fold<double>(0,(v,r)=>v+((r['calories'] as num?)?.toDouble()??0));
+      final weeklyPoints=weeklyMeals.map(mealPoints).whereType<int>().fold<int>(0,(a,b)=>a+b);
       final counted = meals.map(mealPoints).whereType<int>().toList();
       final usedPoints = counted.fold<int>(0,(sum,value)=>sum+value);
       final missingPoints = meals.length-counted.length;
@@ -179,6 +191,20 @@ class _DashboardState extends State<Dashboard> {
             Text(usedPoints<=pointsGoal?'Il reste ${pointsGoal-usedPoints} points':'Budget dépassé de ${usedPoints-pointsGoal} points'),
             if(missingPoints>0)Text('$missingPoints repas sans calories estimées : points non comptés.'),
             const Text('Barème indicatif indépendant, différent de WeightWatchers.'),
+          ]))),
+          Card(child:Padding(padding:const EdgeInsets.all(16),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+           Text('Budget de la semaine (lundi–dimanche)',style:Theme.of(context).textTheme.titleMedium),
+           const SizedBox(height:8),
+           Text('${weeklyCalories.toStringAsFixed(0)} / ${(goal??2350)*7} kcal'),
+           const SizedBox(height:6),
+           LinearProgressIndicator(value:(weeklyCalories/((goal??2350)*7)).clamp(0.0,1.0),minHeight:12,borderRadius:BorderRadius.circular(8)),
+           const SizedBox(height:8),
+           Text('$weeklyPoints / ${pointsGoal*7} points'),
+           const SizedBox(height:6),
+           LinearProgressIndicator(value:(weeklyPoints/(pointsGoal<=0?1:pointsGoal*7)).clamp(0.0,1.0),minHeight:12,borderRadius:BorderRadius.circular(8)),
+           const SizedBox(height:8),
+           Text('Solde : ${((goal??2350)*7-weeklyCalories).toStringAsFixed(0)} kcal et ${pointsGoal*7-weeklyPoints} points'),
+           const Text('Le budget hebdomadaire permet de visualiser les écarts, sans imposer de compensation.',style:TextStyle(fontSize:12)),
           ]))),
           Card(child: ListTile(leading:const Icon(Icons.fitness_center_outlined),title:Text('Protéines : ${protein.toStringAsFixed(0)} / $proteinGoal g'),subtitle:Text('Premier objectif de poids : ${weightGoal.toStringAsFixed(1)} kg'))),
           const Text('Les estimations alimentaires ne sont pas des mesures exactes.'),
@@ -350,7 +376,11 @@ String normalizeMealDescription(String input) {
 }
 
 class Meals extends StatelessWidget{final VoidCallback reload;const Meals({super.key,required this.reload});Future<void> edit(BuildContext context,[Map<String,Object?>? row]) async{String? photo=row?['photo'] as String?;final date=TextEditingController(text:row?['date'] as String? ??today()),category=TextEditingController(text:row?['category'] as String? ??'Déjeuner'),desc=TextEditingController(text:row?['description'] as String? ??''),cal=TextEditingController(text:fmt(row?['calories'])=='—'?'':fmt(row?['calories'])),pro=TextEditingController(text:fmt(row?['protein'])=='—'?'':fmt(row?['protein'])),carb=TextEditingController(text:fmt(row?['carbs'])=='—'?'':fmt(row?['carbs'])),fat=TextEditingController(text:fmt(row?['fat'])=='—'?'':fmt(row?['fat'])),unc=TextEditingController(text:row?['uncertainty'] as String? ??''),notes=TextEditingController(text:row?['notes'] as String? ??'');
- await showModalBottomSheet(context:context,isScrollControlled:true,useSafeArea:true,builder:(ctx)=>StatefulBuilder(builder:(ctx,setLocal)=>Padding(padding:EdgeInsets.fromLTRB(16,16,16,MediaQuery.of(ctx).viewInsets.bottom+MediaQuery.of(ctx).viewPadding.bottom+24),child:SingleChildScrollView(child:Column(mainAxisSize:MainAxisSize.min,children:[const Text('Repas : valeurs estimées, à vérifier'),DropdownButtonFormField<String>(value:mealCategories.contains(category.text)?category.text:'Déjeuner',decoration:const InputDecoration(labelText:'Catégorie du repas'),items:[for(final name in mealCategories)DropdownMenuItem(value:name,child:Text(name))],onChanged:(v){if(v!=null)category.text=v;}),for(final f in [('Date',date),('Aliments et portions (ex : lait entier 1 bol, nesquik 2 cuillères à café)',desc),('Calories (kcal)',cal),('Protéines (g)',pro),('Glucides (g)',carb),('Lipides (g)',fat),('Incertitudes',unc),('Commentaires',notes)])TextField(controller:f.$2,decoration:InputDecoration(labelText:f.$1)),TextButton.icon(onPressed:() async{
+ await showModalBottomSheet(context:context,isScrollControlled:true,useSafeArea:true,builder:(ctx)=>StatefulBuilder(builder:(ctx,setLocal)=>Padding(padding:EdgeInsets.fromLTRB(16,16,16,MediaQuery.of(ctx).viewInsets.bottom+MediaQuery.of(ctx).viewPadding.bottom+24),child:SingleChildScrollView(child:Column(mainAxisSize:MainAxisSize.min,children:[const Text('Repas : valeurs estimées, à vérifier'),DropdownButtonFormField<String>(value:mealCategories.contains(category.text)?category.text:'Déjeuner',decoration:const InputDecoration(labelText:'Catégorie du repas'),items:[for(final name in mealCategories)DropdownMenuItem(value:name,child:Text(name))],onChanged:(v){if(v!=null)category.text=v;}),for(final f in [('Date',date),('Aliments et portions (ex : lait entier 1 bol, nesquik 2 cuillères à café)',desc),('Calories (kcal)',cal),('Protéines (g)',pro),('Glucides (g)',carb),('Lipides (g)',fat),('Incertitudes',unc),('Commentaires',notes)])TextField(controller:f.$2,decoration:InputDecoration(labelText:f.$1)),TextButton.icon(onPressed:()async{
+ await Navigator.of(ctx).push(MaterialPageRoute(builder:(_)=>ProductHistory(db:Store.db,onAdded:reload)));
+ if(ctx.mounted)setLocal((){});
+},icon:const Icon(Icons.history),label:const Text('Historique des produits')),
+TextButton.icon(onPressed:() async{
  final selected=await showDialog<PizzaSelection>(context:ctx,builder:(_)=>const PizzaRecipePicker());
  if(selected==null||!ctx.mounted)return;
  final estimate=estimateFoods(selected.description),missing=describeEstimate(selected.description);
