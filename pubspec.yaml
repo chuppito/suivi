@@ -11,6 +11,8 @@ dependencies:
   path: ^1.9.1
   path_provider: ^2.1.5
   image_picker: ^1.1.2
+  mobile_scanner: ^7.1.2
+  http: ^1.5.0
   fl_chart: ^0.70.2
   share_plus: ^10.1.4
   archive: ^4.0.4
