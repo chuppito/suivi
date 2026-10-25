@@ -24,6 +24,9 @@ class Store {
   if((await db.rawQuery('SELECT COUNT(*) n FROM measures')).first['n']==0){
    for(final r in seedMeasurements){await db.insert('measures',{'date':r.$1,'weight':r.$2,'waist':r.$3,'approx':r.$4,'note':r.$5});}
   }
+  for (final entry in {'calorie_goal':'2350','points_goal':'48','protein_goal':'140','fat_goal':'75','carb_goal':'280','weight_goal':'88'}.entries) {
+    await db.insert('settings',{'key':entry.key,'value':entry.value},conflictAlgorithm:ConflictAlgorithm.ignore);
+  }
   if((await db.rawQuery('SELECT COUNT(*) n FROM supplements')).first['n']==0){
    for(final s in seedSupplements){await db.insert('supplements',s);}
   }
@@ -133,10 +136,15 @@ class _DashboardState extends State<Dashboard> {
       final goalSetting = snapshot.data![2].where((row) => row['key'] == 'calorie_goal');
       final goal = goalSetting.isEmpty ? null : int.tryParse(goalSetting.first['value'] as String? ?? '');
       final pointsGoalRow = snapshot.data![2].where((row)=>row['key']=='points_goal');
-      final pointsGoal = pointsGoalRow.isEmpty ? 25 : (int.tryParse(pointsGoalRow.first['value'] as String? ?? '') ?? 25);
+      final pointsGoal = pointsGoalRow.isEmpty ? 48 : (int.tryParse(pointsGoalRow.first['value'] as String? ?? '') ?? 48);
       final counted = meals.map(mealPoints).whereType<int>().toList();
       final usedPoints = counted.fold<int>(0,(sum,value)=>sum+value);
       final missingPoints = meals.length-counted.length;
+      final protein = meals.fold<double>(0,(sum,meal)=>sum+((meal['protein'] as num?)?.toDouble() ?? 0));
+      final proteinRow = snapshot.data![2].where((row)=>row['key']=='protein_goal');
+      final proteinGoal = proteinRow.isEmpty ? 140 : (int.tryParse(proteinRow.first['value'] as String? ?? '') ?? 140);
+      final weightRow = snapshot.data![2].where((row)=>row['key']=='weight_goal');
+      final weightGoal = weightRow.isEmpty ? 88.0 : (double.tryParse(weightRow.first['value'] as String? ?? '') ?? 88.0);
       final calories = meals.fold<double>(
         0, (value, meal) => value + ((meal['calories'] as num?)?.toDouble() ?? 0),
       );
@@ -166,6 +174,7 @@ class _DashboardState extends State<Dashboard> {
             if(missingPoints>0)Text('$missingPoints repas sans calories estimées : points non comptés.'),
             const Text('Barème indicatif indépendant, différent de WeightWatchers.'),
           ]))),
+          Card(child: ListTile(leading:const Icon(Icons.fitness_center_outlined),title:Text('Protéines : ${protein.toStringAsFixed(0)} / $proteinGoal g'),subtitle:Text('Premier objectif de poids : ${weightGoal.toStringAsFixed(1)} kg'))),
           const Text('Les estimations alimentaires ne sont pas des mesures exactes.'),
           const SizedBox(height: 12),
           FutureBuilder(
@@ -311,10 +320,70 @@ class Meals extends StatelessWidget{final VoidCallback reload;const Meals({super
  await showModalBottomSheet(context:context,isScrollControlled:true,useSafeArea:true,builder:(ctx)=>StatefulBuilder(builder:(ctx,setLocal)=>Padding(padding:EdgeInsets.fromLTRB(16,16,16,MediaQuery.of(ctx).viewInsets.bottom+MediaQuery.of(ctx).viewPadding.bottom+24),child:SingleChildScrollView(child:Column(mainAxisSize:MainAxisSize.min,children:[const Text('Repas : valeurs estimées, à vérifier'),DropdownButtonFormField<String>(value:mealCategories.contains(category.text)?category.text:'Déjeuner',decoration:const InputDecoration(labelText:'Catégorie du repas'),items:[for(final name in mealCategories)DropdownMenuItem(value:name,child:Text(name))],onChanged:(v){if(v!=null)category.text=v;}),for(final f in [('Date',date),('Aliments et quantités, ex : poulet 150g, riz cuit 200g',desc),('Calories (kcal)',cal),('Protéines (g)',pro),('Glucides (g)',carb),('Lipides (g)',fat),('Incertitudes',unc),('Commentaires',notes)])TextField(controller:f.$2,decoration:InputDecoration(labelText:f.$1)),TextButton.icon(onPressed:(){final estimate=estimateFoods(desc.text);if(estimate.$5==0){ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(content:Text('Indiquer un aliment connu et sa quantité en grammes (ex : poulet 150g, riz cuit 200g).')));return;}setLocal((){cal.text=estimate.$1.toStringAsFixed(0);pro.text=estimate.$2.toStringAsFixed(1);carb.text=estimate.$3.toStringAsFixed(1);fat.text=estimate.$4.toStringAsFixed(1);unc.text='Estimation sur ${estimate.$5} aliment(s) reconnus ; vérifier ingrédients, huile et portions.';});},icon:const Icon(Icons.calculate_outlined),label:const Text('Estimer les calories et macros')),const Text('La photo sert de référence visuelle. Analyse automatique par IA non activée.'),Wrap(children:[TextButton.icon(onPressed:() async{final x=await ImagePicker().pickImage(source:ImageSource.camera);if(x!=null){final dir=await getApplicationDocumentsDirectory();final dest=p.join(dir.path,'meal_${DateTime.now().microsecondsSinceEpoch}${p.extension(x.path)}');await File(x.path).copy(dest);setLocal(()=>photo=dest);}},icon:const Icon(Icons.camera_alt),label:const Text('Photo')),TextButton.icon(onPressed:() async{final x=await ImagePicker().pickImage(source:ImageSource.gallery);if(x!=null){final dir=await getApplicationDocumentsDirectory();final dest=p.join(dir.path,'meal_${DateTime.now().microsecondsSinceEpoch}${p.extension(x.path)}');await File(x.path).copy(dest);setLocal(()=>photo=dest);}},icon:const Icon(Icons.photo_library),label:const Text('Galerie')),if(photo!=null)TextButton(onPressed:(){setLocal(()=>photo=null);},child:const Text('Retirer la photo'))]),FilledButton(onPressed:() async{double? numValue(TextEditingController c)=>double.tryParse(c.text.replaceAll(',','.'));final data={'date':date.text,'category':category.text,'description':desc.text,'photo':photo,'calories':numValue(cal),'protein':numValue(pro),'carbs':numValue(carb),'fat':numValue(fat),'uncertainty':unc.text,'notes':notes.text};if(row==null){await Store.db.insert('meals',data);}else{await Store.db.update('meals',data,where:'id=?',whereArgs:[row['id']]);}if(ctx.mounted)Navigator.pop(ctx);reload();},child:const Text('Valider le repas'))])))));}
  @override Widget build(BuildContext context)=>FutureBuilder(future:Store.all('meals',order:'date DESC'),builder:(c,s)=>Column(children:[Expanded(child:ListView(children:[for(final r in s.data??<Map<String,Object?>>[])ListTile(leading:r['photo']!=null&&File(r['photo'] as String).existsSync()?Image.file(File(r['photo'] as String),width:55,height:55,fit:BoxFit.cover):const Icon(Icons.restaurant),title:Text('${r['category']} • ${r['date']}'),subtitle:Text('${r['description']}\n${fmt(r['calories'])} kcal estimées • ${mealPoints(r)?.toString() ?? '—'} points'),isThreeLine:true,onTap:()=>edit(context,r),trailing:PopupMenuButton<String>(onSelected:(v) async{if(v=='duplicate'){final data=Map<String,Object?>.from(r)..remove('id');data['date']=today();await Store.db.insert('meals',data);}else if(v=='delete'){await Store.db.delete('meals',where:'id=?',whereArgs:[r['id']]);}else if(v=='photo'){await Store.db.update('meals',{'photo':null},where:'id=?',whereArgs:[r['id']]);}reload();},itemBuilder:(_)=>const [PopupMenuItem(value:'duplicate',child:Text('Dupliquer')),PopupMenuItem(value:'photo',child:Text('Retirer la photo')),PopupMenuItem(value:'delete',child:Text('Supprimer'))]))])),FilledButton.icon(onPressed:()=>edit(context),icon:const Icon(Icons.add),label:const Text('Ajouter un repas'))]));
 }
-class Supplements extends StatelessWidget{final VoidCallback reload;const Supplements({super.key,required this.reload});@override Widget build(BuildContext context)=>FutureBuilder(future:Future.wait([Store.all('supplements'),Store.all('intakes')]),builder:(c,s){if(!s.hasData)return const Center(child:CircularProgressIndicator());final taken=s.data![1].where((r)=>r['date']==today()).map((r)=>r['supplement_id']).toSet();return ListView(children:[for(final r in s.data![0])SwitchListTile(title:Text('${r['name']} • ${r['dose']}'),subtitle:Text('${r['brand']}\n${r['details']}'),isThreeLine:true,value:taken.contains(r['id']),onChanged:r['active']==0?null:(v) async{if(v){await Store.db.insert('intakes',{'supplement_id':r['id'],'date':today()});}else{await Store.db.delete('intakes',where:'supplement_id=? AND date=?',whereArgs:[r['id'],today()]);}reload();},secondary:IconButton(icon:const Icon(Icons.edit),onPressed:() async{final dose=TextEditingController(text:fmt(r['dose'])),details=TextEditingController(text:fmt(r['details']));await editForm(context,'Modifier le complément',[('Dose',dose),('Composition / notes',details)],() async{await Store.db.update('supplements',{'dose':dose.text,'details':details.text},where:'id=?',whereArgs:[r['id']]);reload();});}))]);});}
-class More extends StatelessWidget{final VoidCallback reload;const More({super.key,required this.reload});@override Widget build(BuildContext context)=>ListView(children:[ListTile(title:const Text('Exporter les données JSON'),leading:const Icon(Icons.upload_file),onTap:Store.export),ListTile(title:const Text('Restaurer les données JSON'),subtitle:const Text('Remplace les données locales ; conserver une sauvegarde avant.'),leading:const Icon(Icons.download),onTap:() async{try{await Store.restore();reload();}catch(e){if(context.mounted)ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text('Restauration impossible : $e')));}}),ListTile(title:const Text('Activité et récupération'),onTap:() async{final kind=TextEditingController(),duration=TextEditingController(),intensity=TextEditingController(),notes=TextEditingController();await editForm(context,'Nouvelle activité',[('Type',kind),('Durée (minutes)',duration),('Intensité',intensity),('Fatigue, sommeil, douleurs, chaleur',notes)],() async{await Store.db.insert('activities',{'date':today(),'type':kind.text,'duration':int.tryParse(duration.text),'intensity':intensity.text,'notes':notes.text});reload();});}),ListTile(title:const Text('Budget de points quotidien'),subtitle:const Text('Barème indicatif indépendant : 25 points par défaut, modifiable'),leading:const Icon(Icons.toll_outlined),onTap:() async{
+class Supplements extends StatefulWidget {
+ final VoidCallback reload;
+ const Supplements({super.key,required this.reload});
+ @override State<Supplements> createState()=>_SupplementsState();
+}
+class _SupplementsState extends State<Supplements> {
+ late Future<List<List<Map<String,Object?>>>> future;
+ @override void initState(){super.initState();refresh();}
+ void refresh(){future=Future.wait([Store.all('supplements'),Store.all('intakes')]);}
+ void changed(){setState(refresh);widget.reload();}
+ Future<void> mark(Map<String,Object?> supplement,bool value) async {
+  if(value){
+   final exists=await Store.db.query('intakes',where:'supplement_id=? AND date=?',whereArgs:[supplement['id'],today()]);
+   if(exists.isEmpty)await Store.db.insert('intakes',{'supplement_id':supplement['id'],'date':today()});
+  }else{
+   await Store.db.delete('intakes',where:'supplement_id=? AND date=?',whereArgs:[supplement['id'],today()]);
+  }
+ }
+ @override Widget build(BuildContext context)=>FutureBuilder<List<List<Map<String,Object?>>>>(
+ future:future,builder:(context,s){
+  if(s.hasError)return Center(child:Text('Erreur compléments : ${s.error}'));
+  if(!s.hasData)return const Center(child:CircularProgressIndicator());
+  final supplements=s.data![0];
+  final taken=s.data![1].where((r)=>r['date']==today()).map((r)=>r['supplement_id']).toSet();
+  final shaker=supplements.where((r){
+   final name=(r['name'] as String).toLowerCase();
+   return name.contains('whey')||name.contains('créatine')||name.contains('collagène');
+  }).toList();
+  final shakerDone=shaker.isNotEmpty&&shaker.every((r)=>taken.contains(r['id']));
+  return ListView(padding:const EdgeInsets.all(12),children:[
+   Card(child:SwitchListTile(
+    secondary:const Icon(Icons.local_drink_outlined),
+    title:const Text('Shaker pris aujourd’hui'),
+    subtitle:const Text('Whey 30 g + collagène 15 g + créatine 5 g. Coche les trois prises ensemble.'),
+    value:shakerDone,
+    onChanged:shaker.isEmpty?null:(v)async{
+     for(final r in shaker){await mark(r,v);}
+     changed();
+    },
+   )),
+   const Padding(padding:EdgeInsets.all(12),child:Text('Compléments individuels')),
+   for(final r in supplements)
+    SwitchListTile(
+     title:Text('${r['name']} • ${r['dose']}'),
+     subtitle:Text('${r['brand']}\n${r['details']}'),
+     isThreeLine:true,
+     value:taken.contains(r['id']),
+     onChanged:r['active']==0?null:(v)async{await mark(r,v);changed();},
+     secondary:IconButton(icon:const Icon(Icons.edit_outlined),onPressed:()async{
+      final dose=TextEditingController(text:fmt(r['dose']));
+      final details=TextEditingController(text:fmt(r['details']));
+      await editForm(context,'Modifier le complément',[('Dose',dose),('Composition / notes',details)],()async{
+       await Store.db.update('supplements',{'dose':dose.text,'details':details.text},where:'id=?',whereArgs:[r['id']]);
+       changed();
+      });
+     }),
+    ),
+   const Padding(padding:EdgeInsets.all(12),child:Text('Psyllium : à cocher uniquement si pris. À utiliser avec suffisamment d’eau ; demander conseil en cas de trouble de déglutition ou de problème intestinal.')),
+  ]);
+ });
+}
+class More extends StatelessWidget{final VoidCallback reload;const More({super.key,required this.reload});@override Widget build(BuildContext context)=>ListView(children:[ListTile(title:const Text('Exporter les données JSON'),leading:const Icon(Icons.upload_file),onTap:Store.export),ListTile(title:const Text('Restaurer les données JSON'),subtitle:const Text('Remplace les données locales ; conserver une sauvegarde avant.'),leading:const Icon(Icons.download),onTap:() async{try{await Store.restore();reload();}catch(e){if(context.mounted)ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text('Restauration impossible : $e')));}}),ListTile(title:const Text('Activité et récupération'),onTap:() async{final kind=TextEditingController(),duration=TextEditingController(),intensity=TextEditingController(),notes=TextEditingController();await editForm(context,'Nouvelle activité',[('Type',kind),('Durée (minutes)',duration),('Intensité',intensity),('Fatigue, sommeil, douleurs, chaleur',notes)],() async{await Store.db.insert('activities',{'date':today(),'type':kind.text,'duration':int.tryParse(duration.text),'intensity':intensity.text,'notes':notes.text});reload();});}),ListTile(title:const Text('Budget de points quotidien'),subtitle:const Text('48 points de départ, budget modifiable'),leading:const Icon(Icons.toll_outlined),onTap:() async{
  final existing=await Store.db.query('settings',where:'key=?',whereArgs:['points_goal']);
- final controller=TextEditingController(text:existing.isEmpty?'25':(existing.first['value'] as String? ?? '25'));
+ final controller=TextEditingController(text:existing.isEmpty?'48':(existing.first['value'] as String? ?? '48'));
  if(!context.mounted)return;
  await editForm(context,'Budget de points',[('Points par jour (5 à 100)',controller)],() async{
  final value=int.tryParse(controller.text);
@@ -324,7 +393,7 @@ class More extends StatelessWidget{final VoidCallback reload;const More({super.k
  });
 }),ListTile(title:const Text('Objectif quotidien en calories'),subtitle:const Text('Définir un objectif personnel, sans calcul automatique'),leading:const Icon(Icons.flag_outlined),onTap:() async{
  final existing=await Store.db.query('settings',where:'key=?',whereArgs:['calorie_goal']);
- final controller=TextEditingController(text:existing.isEmpty?'':(existing.first['value'] as String? ?? ''));
+ final controller=TextEditingController(text:existing.isEmpty?'2350':(existing.first['value'] as String? ?? '2350'));
  if(!context.mounted)return;
  await editForm(context,'Objectif calorique',[('kcal par jour',controller)],() async{
  final value=int.tryParse(controller.text);
