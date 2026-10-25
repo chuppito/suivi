@@ -32,6 +32,8 @@ class _FoodBarcodeScannerState extends State<FoodBarcodeScanner> {
    if(kcal<=0)throw Exception('Calories non renseignées pour ce produit');
    final grams=number(product['product_quantity'])??100;
    if(!mounted)return;
+   await controller.stop();
+   if(!mounted)return;
    Navigator.of(context).pop(FoodScanResult((product['product_name']??'Produit scanné').toString(),kcal,number(nutrients['proteins_100g'])??0,number(nutrients['carbohydrates_100g'])??0,number(nutrients['fat_100g'])??0,grams>0?grams:100));
   }catch(e){if(mounted)setState(()=>error=e.toString().replaceFirst('Exception: ',''));}
   finally{if(mounted)setState(()=>loading=false);}
