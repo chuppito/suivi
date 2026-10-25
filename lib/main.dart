@@ -66,8 +66,83 @@ class _HomeState extends State<Home>{int tab=0;int refresh=0;void reload()=>setS
 }
 String today()=>DateTime.now().toIso8601String().substring(0,10);
 String fmt(Object? v)=>v==null?'—':v.toString();
-Future<void> editForm(BuildContext context,String title,List<(String,TextEditingController)> fields,Future<void> Function() save) async{await showDialog(context:context,builder:(ctx)=>AlertDialog(title:Text(title),content:SingleChildScrollView(child:Column(mainAxisSize:MainAxisSize.min,children:fields.map((f)=>Padding(padding:const EdgeInsets.symmetric(vertical:5),child:TextField(controller:f.$2,decoration:InputDecoration(labelText:f.$1,border:const OutlineInputBorder()))).toList())),actions:[TextButton(onPressed:()=>Navigator.pop(ctx),child:const Text('Annuler')),FilledButton(onPressed:() async {await save();if(ctx.mounted)Navigator.pop(ctx);},child:const Text('Enregistrer'))]));}
-class Dashboard extends StatelessWidget{const Dashboard({super.key});@override Widget build(BuildContext context)=>FutureBuilder(future:Future.wait([Store.all('measures',order:'date DESC'),Store.all('meals',order:'date DESC')]),builder:(context,s){if(!s.hasData)return const Center(child:CircularProgressIndicator());final m=s.data![0], meals=s.data![1].where((r)=>(r['date'] as String).startsWith(today())).toList();final calories=meals.fold<double>(0,(v,r)=>v+((r['calories'] as num?)?.toDouble()??0));return ListView(padding:const EdgeInsets.all(16),children:[Text('Dernières mesures',style:Theme.of(context).textTheme.titleLarge),if(m.isNotEmpty)Card(child:ListTile(title:Text('${fmt(m.first['weight'])} kg'),subtitle:Text('Tour de taille : ${fmt(m.first['waist'])} cm • ${m.first['date']}'))),const SizedBox(height:12),Text('Aujourd’hui',style:Theme.of(context).textTheme.titleLarge),Card(child:ListTile(title:Text('${calories.toStringAsFixed(0)} kcal estimées'),subtitle:Text('${meals.length} repas enregistré(s)'))),const Text('Les estimations alimentaires ne sont pas des mesures exactes.'),const SizedBox(height:12),const Text('Shaker après sport : 30 g whey, 15 g collagène, 5 g créatine, 300–400 ml d’eau. Enregistrer les prises séparément sans les doubler.')]);}}
+Future<void> editForm(BuildContext context, String title,
+    List<(String, TextEditingController)> fields,
+    Future<void> Function() save) async {
+  await showDialog<void>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: Text(title),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: fields.map((f) => Padding(
+            padding: const EdgeInsets.symmetric(vertical: 5),
+            child: TextField(
+              controller: f.$2,
+              decoration: InputDecoration(
+                labelText: f.$1,
+                border: const OutlineInputBorder(),
+              ),
+            ),
+          )).toList(),
+        ),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Annuler')),
+        FilledButton(
+          onPressed: () async {
+            await save();
+            if (ctx.mounted) Navigator.pop(ctx);
+          },
+          child: const Text('Enregistrer'),
+        ),
+      ],
+    ),
+  );
+}
+
+class Dashboard extends StatelessWidget {
+  const Dashboard({super.key});
+  @override
+  Widget build(BuildContext context) => FutureBuilder(
+    future: Future.wait([
+      Store.all('measures', order: 'date DESC'),
+      Store.all('meals', order: 'date DESC'),
+    ]),
+    builder: (context, snapshot) {
+      if (!snapshot.hasData) {
+        return const Center(child: CircularProgressIndicator());
+      }
+      final measures = snapshot.data![0];
+      final meals = snapshot.data![1]
+          .where((r) => (r['date'] as String).startsWith(today())).toList();
+      final calories = meals.fold<double>(
+        0, (value, meal) => value + ((meal['calories'] as num?)?.toDouble() ?? 0),
+      );
+      return ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          Text('Dernières mesures', style: Theme.of(context).textTheme.titleLarge),
+          if (measures.isNotEmpty)
+            Card(child: ListTile(
+              title: Text("${fmt(measures.first['weight'])} kg"),
+              subtitle: Text("Tour de taille : ${fmt(measures.first['waist'])} cm • ${measures.first['date']}"),
+            )),
+          const SizedBox(height: 12),
+          Text('Aujourd’hui', style: Theme.of(context).textTheme.titleLarge),
+          Card(child: ListTile(
+            title: Text("${calories.toStringAsFixed(0)} kcal estimées"),
+            subtitle: Text("${meals.length} repas enregistré(s)"),
+          )),
+          const Text('Les estimations alimentaires ne sont pas des mesures exactes.'),
+          const SizedBox(height: 12),
+          const Text('Shaker après sport : 30 g whey, 15 g collagène, 5 g créatine, 300–400 ml d’eau. Enregistrer les prises séparément sans les doubler.'),
+        ],
+      );
+    },
+  );
+}
 class Measurements extends StatelessWidget{final VoidCallback reload;const Measurements({super.key,required this.reload});Future<void> edit(BuildContext c,[Map<String,Object?>? row]) async{final d=TextEditingController(text:fmt(row?['date'])=='—'?today():fmt(row?['date'])),w=TextEditingController(text:fmt(row?['weight'])=='—'?'':fmt(row?['weight'])),t=TextEditingController(text:fmt(row?['waist'])=='—'?'':fmt(row?['waist'])),note=TextEditingController(text:fmt(row?['note'])=='—'?'':fmt(row?['note']));await editForm(c,'Mesure',[('Date AAAA-MM-JJ',d),('Poids (kg)',w),('Tour de taille (cm, facultatif)',t),('Note / approximation',note)],() async{final data={'date':d.text,'weight':double.tryParse(w.text.replaceAll(',','.')),'waist':double.tryParse(t.text.replaceAll(',','.')),'note':note.text,'approx':note.text.toLowerCase().contains('approxim')?1:(row?['approx']??0)};if(row==null){await Store.db.insert('measures',data);}else{await Store.db.update('measures',data,where:'id=?',whereArgs:[row['id']]);}reload();});}
  @override Widget build(BuildContext context)=>FutureBuilder(future:Store.all('measures',order:'date ASC'),builder:(c,s){if(!s.hasData)return const Center(child:CircularProgressIndicator());final rows=s.data!;return Column(children:[Expanded(child:ListView(children:[if(rows.length>1)SizedBox(height:190,child:Padding(padding:const EdgeInsets.all(16),child:LineChart(LineChartData(titlesData:const FlTitlesData(show:false),lineBarsData:[LineChartBarData(spots:[for(var i=0;i<rows.length;i++)if(rows[i]['weight']!=null)FlSpot(i.toDouble(),(rows[i]['weight'] as num).toDouble())],isCurved:false,dotData:const FlDotData(show:true))])))),...rows.reversed.map((r)=>ListTile(title:Text('${r['date']} : ${fmt(r['weight'])} kg • ${fmt(r['waist'])} cm'),subtitle:Text('${r['approx']==1?'⚠ Approximation • ':''}${fmt(r['note'])}'),onTap:()=>edit(context,r),trailing:IconButton(icon:const Icon(Icons.delete_outline),onPressed:() async{await Store.db.delete('measures',where:'id=?',whereArgs:[r['id']]);reload();})))])),Padding(padding:const EdgeInsets.all(12),child:FilledButton.icon(onPressed:()=>edit(context),icon:const Icon(Icons.add),label:const Text('Ajouter une mesure')))]);});}}
 class Meals extends StatelessWidget{final VoidCallback reload;const Meals({super.key,required this.reload});Future<void> edit(BuildContext context,[Map<String,Object?>? row]) async{String? photo=row?['photo'] as String?;final date=TextEditingController(text:row?['date'] as String? ??today()),category=TextEditingController(text:row?['category'] as String? ??'Déjeuner'),desc=TextEditingController(text:row?['description'] as String? ??''),cal=TextEditingController(text:fmt(row?['calories'])=='—'?'':fmt(row?['calories'])),pro=TextEditingController(text:fmt(row?['protein'])=='—'?'':fmt(row?['protein'])),carb=TextEditingController(text:fmt(row?['carbs'])=='—'?'':fmt(row?['carbs'])),fat=TextEditingController(text:fmt(row?['fat'])=='—'?'':fmt(row?['fat'])),unc=TextEditingController(text:row?['uncertainty'] as String? ??''),notes=TextEditingController(text:row?['notes'] as String? ??'');
