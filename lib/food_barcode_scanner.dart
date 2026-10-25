@@ -33,18 +33,20 @@ class _FoodBarcodeScannerState extends State<FoodBarcodeScanner> {
    final response=await http.get(uri,headers:{'User-Agent':'SuiviNutritionCorps/0.2 (https://github.com/chuppito/suivi)','Accept':'application/json'}).timeout(const Duration(seconds:10));
    if(response.statusCode==200){
     final data=jsonDecode(response.body) as Map<String,dynamic>;
-    if(data['status']==1){online=data['product'] as Map<String,dynamic>;if(mounted)showOnline();return;}
+    if(data['status']==1){online=data['product'] as Map<String,dynamic>;if(mounted)await showOnline();return;}
    }
    if(mounted)await editProduct(code);
   }catch(e){if(mounted){setState(()=>error='Recherche impossible : $e');await editProduct(code);}}
   finally{if(mounted)setState(()=>loading=false);}
  }
  double? number(dynamic v)=>v is num?v.toDouble():double.tryParse(v?.toString()??'');
- void showOnline(){
+ Future<void> showOnline() async {
   final p=online!,n=(p['nutriments'] as Map<String,dynamic>?)??{};
   final kcal=number(n['energy-kcal_100g'])??((number(n['energy_100g'])??0)/4.184);
   if(kcal<=0){editProduct(barcode!);return;}
-  showProduct({'name':p['product_name']??'Produit scanné','kcal':kcal,'protein':number(n['proteins_100g'])??0,'carbs':number(n['carbohydrates_100g'])??0,'fat':number(n['fat_100g'])??0,'grams':number(p['product_quantity'])??100});
+  final item=<String,Object?>{'barcode':barcode,'name':p['product_name']??'Produit scanné','kcal':kcal,'protein':number(n['proteins_100g'])??0,'carbs':number(n['carbohydrates_100g'])??0,'fat':number(n['fat_100g'])??0};
+  await widget.db.insert('food_library',item,conflictAlgorithm:ConflictAlgorithm.replace);
+  if(mounted)showProduct({...item,'grams':number(p['product_quantity'])??100});
  }
  Future<void> showProduct(Map<String,dynamic> p) async {
   if(!mounted)return;
