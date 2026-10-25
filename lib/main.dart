@@ -282,7 +282,7 @@ class Measurements extends StatelessWidget {
 const mealCategories = ['Petit-déjeuner', 'Déjeuner', 'Dîner', 'Collation'];
 /// Values per 100 g, approximate. A weighed portion improves reliability.
 const foodReference = <String, (double,double,double,double)>{
- 'lait entier':(64,3.2,4.8,3.6),'nesquik':(380,4.5,80,3.5),
+ 'pâton pizza maison':(227,7.4,46,1.3),'pate pizza maison':(227,7.4,46,1.3),'pâte pizza maison':(227,7.4,46,1.3),'sauce mutti pizza':(40,1.8,6.6,0.5),'mozzarella':(260,18,2,20),'emmental':(380,28,0,29),'cheddar':(400,25,1.3,33),'lait entier':(64,3.2,4.8,3.6),'nesquik':(380,4.5,80,3.5),
  'miel':(304,0.3,82,0),'pain de campagne':(255,8.5,50,1.5),
  'pain':(265,9,49,3.2),'riz cuit':(130,2.7,28,0.3),
  'pâtes cuites':(155,5.8,30,0.9),'poulet':(165,31,0,3.6),
