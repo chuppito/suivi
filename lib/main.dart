@@ -381,7 +381,23 @@ class _SupplementsState extends State<Supplements> {
   ]);
  });
 }
-class More extends StatelessWidget{final VoidCallback reload;const More({super.key,required this.reload});@override Widget build(BuildContext context)=>ListView(children:[ListTile(title:const Text('Exporter les données JSON'),leading:const Icon(Icons.upload_file),onTap:Store.export),ListTile(title:const Text('Restaurer les données JSON'),subtitle:const Text('Remplace les données locales ; conserver une sauvegarde avant.'),leading:const Icon(Icons.download),onTap:() async{try{await Store.restore();reload();}catch(e){if(context.mounted)ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text('Restauration impossible : $e')));}}),ListTile(title:const Text('Activité et récupération'),onTap:() async{final kind=TextEditingController(),duration=TextEditingController(),intensity=TextEditingController(),notes=TextEditingController();await editForm(context,'Nouvelle activité',[('Type',kind),('Durée (minutes)',duration),('Intensité',intensity),('Fatigue, sommeil, douleurs, chaleur',notes)],() async{await Store.db.insert('activities',{'date':today(),'type':kind.text,'duration':int.tryParse(duration.text),'intensity':intensity.text,'notes':notes.text});reload();});}),ListTile(title:const Text('Budget de points quotidien'),subtitle:const Text('48 points de départ, budget modifiable'),leading:const Icon(Icons.toll_outlined),onTap:() async{
+class More extends StatelessWidget{final VoidCallback reload;const More({super.key,required this.reload});@override Widget build(BuildContext context)=>ListView(children:[ListTile(title:const Text('Exporter les données JSON'),leading:const Icon(Icons.upload_file),onTap:Store.export),ListTile(title:const Text('Restaurer les données JSON'),subtitle:const Text('Remplace les données locales ; conserver une sauvegarde avant.'),leading:const Icon(Icons.download),onTap:() async{try{await Store.restore();reload();}catch(e){if(context.mounted)ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text('Restauration impossible : $e')));}}),ListTile(title:const Text('Activité et récupération'),onTap:() async{final kind=TextEditingController(),duration=TextEditingController(),intensity=TextEditingController(),notes=TextEditingController();await editForm(context,'Nouvelle activité',[('Type',kind),('Durée (minutes)',duration),('Intensité',intensity),('Fatigue, sommeil, douleurs, chaleur',notes)],() async{await Store.db.insert('activities',{'date':today(),'type':kind.text,'duration':int.tryParse(duration.text),'intensity':intensity.text,'notes':notes.text});reload();});}),ListTile(title:const Text('Objectifs nutrition et poids'),subtitle:const Text('Protéines, lipides, glucides et poids cible'),leading:const Icon(Icons.track_changes),onTap:()async{
+ final rows=await Store.all('settings');
+ final settings={for(final row in rows) row['key'] as String:row['value'] as String? ?? ''};
+ final protein=TextEditingController(text:settings['protein_goal']??'140');
+ final fat=TextEditingController(text:settings['fat_goal']??'75');
+ final carbs=TextEditingController(text:settings['carb_goal']??'280');
+ final weight=TextEditingController(text:settings['weight_goal']??'88');
+ if(!context.mounted)return;
+ await editForm(context,'Objectifs personnalisés',[('Protéines (g/jour)',protein),('Lipides (g/jour)',fat),('Glucides (g/jour)',carbs),('Poids cible (kg)',weight)],()async{
+  final values={'protein_goal':protein.text,'fat_goal':fat.text,'carb_goal':carbs.text,'weight_goal':weight.text};
+  if(values.values.any((v)=>double.tryParse(v.replaceAll(',','.'))==null))return;
+  for(final entry in values.entries){
+   await Store.db.insert('settings',{'key':entry.key,'value':entry.value.replaceAll(',','.')},conflictAlgorithm:ConflictAlgorithm.replace);
+  }
+  reload();
+ });
+}),ListTile(title:const Text('Budget de points quotidien'),subtitle:const Text('48 points de départ, budget modifiable'),leading:const Icon(Icons.toll_outlined),onTap:() async{
  final existing=await Store.db.query('settings',where:'key=?',whereArgs:['points_goal']);
  final controller=TextEditingController(text:existing.isEmpty?'48':(existing.first['value'] as String? ?? '48'));
  if(!context.mounted)return;
