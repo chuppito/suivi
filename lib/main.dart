@@ -50,7 +50,7 @@ class Store {
   if(result==null||result.files.single.path==null)return;
   final data=jsonDecode(await File(result.files.single.path!).readAsString()) as Map<String,dynamic>;
   if(data['schema']!=1)throw const FormatException('Format de sauvegarde incompatible');
-  await db.transaction((tx) async {for(final t in ['measures','meals','supplements','intakes','activities','settings']){
+  await db.transaction((tx) async {for(final t in ['measures','meals','supplements','intakes','activities','settings','food_library']){
    final rows=data[t];if(rows is! List){if(t=='food_library')continue;throw const FormatException('Sauvegarde incomplète');}
    await tx.delete(t);for(final row in rows){await tx.insert(t,Map<String,Object?>.from(row as Map));}
   }});
