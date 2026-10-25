@@ -24,6 +24,9 @@ jobs:
       - name: Installer icone personnalisee
         run: |
           sed -i 's|@mipmap/ic_launcher|@drawable/suivi_icon|g' android/app/src/main/AndroidManifest.xml
+      - name: Autoriser camera et internet
+        run: |
+          sed -i 's|<manifest xmlns:android="http://schemas.android.com/apk/res/android">|<manifest xmlns:android="http://schemas.android.com/apk/res/android"><uses-permission android:name="android.permission.CAMERA"/><uses-permission android:name="android.permission.INTERNET"/>|' android/app/src/main/AndroidManifest.xml
       - name: Installer dependances
         run: flutter pub get
       - name: Tests
