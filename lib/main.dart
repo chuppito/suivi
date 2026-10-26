@@ -145,6 +145,21 @@ class _DashboardState extends State<Dashboard> {
       final goal = goalSetting.isEmpty ? 2350 : int.tryParse(goalSetting.first['value'] as String? ?? '');
       final pointsGoalRow = snapshot.data![2].where((row)=>row['key']=='points_goal');
       final pointsGoal = pointsGoalRow.isEmpty ? 48 : (int.tryParse(pointsGoalRow.first['value'] as String? ?? '') ?? 48);
+      final grouped=<String,List<Map<String,Object?>>>{};
+      for(final r in snapshot.data![1]){
+        final date=r['date']?.toString()??'';
+        if(date.length>=10)grouped.putIfAbsent(date.substring(0,10),()=>[]).add(r);
+      }
+      bool achieved(DateTime day){
+        final key=day.toIso8601String().substring(0,10);
+        final items=grouped[key]??[];
+        final kinds=items.map((r)=>(r['category']??'').toString().toLowerCase()).toSet();
+        if(!kinds.contains('petit-déjeuner')||!kinds.contains('déjeuner')||!kinds.contains('dîner'))return false;
+        if(items.any((r)=>r['calories'] is! num||mealPoints(r)==null))return false;
+        final kcal=items.fold<double>(0,(v,r)=>v+(r['calories'] as num).toDouble());
+        final pts=items.fold<int>(0,(v,r)=>v+(mealPoints(r)??0));
+        return kcal>0&&kcal<=(goal??2350)&&pts<=pointsGoal;
+      }
       final now=DateTime.now();
       final monday=DateTime(now.year,now.month,now.day).subtract(Duration(days:now.weekday-1));
       final sunday=monday.add(const Duration(days:6));
