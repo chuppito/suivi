@@ -70,7 +70,15 @@ class _FoodNameSearchState extends State<FoodNameSearch> {
    ]),
    actions:[TextButton(onPressed:()=>Navigator.pop(ctx),child:const Text('Annuler')),FilledButton(onPressed:()=>Navigator.pop(ctx,double.tryParse(grams.text.replaceAll(',','.'))),child:const Text('Ajouter'))],
   ));
-  if(amount!=null&&amount>0&&mounted)Navigator.pop(context,FoodScanResult(item.name,item.kcal,item.protein,item.carbs,item.fat,amount));
+  if(amount!=null&&amount>0&&mounted){
+   try{
+    final existing=await widget.db.query('food_library',where:'LOWER(name)=?',whereArgs:[item.name.toLowerCase()],limit:1);
+    if(existing.isEmpty){
+     await widget.db.insert('food_library',{'name':item.name,'kcal':item.kcal,'protein':item.protein,'carbs':item.carbs,'fat':item.fat});
+    }
+   }catch(_){/* Le repas reste utilisable si le cache ne peut pas être enregistré. */}
+   if(mounted)Navigator.pop(context,FoodScanResult(item.name,item.kcal,item.protein,item.carbs,item.fat,amount));
+  }
  }
  @override void dispose(){query.dispose();super.dispose();}
  @override Widget build(BuildContext context)=>Scaffold(
