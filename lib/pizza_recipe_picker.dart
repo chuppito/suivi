@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'food_barcode_scanner.dart';
+import 'pizza_catalog.dart';
 import 'package:sqflite/sqflite.dart';
 
 class PizzaSelection {
@@ -13,10 +14,11 @@ class PizzaRecipePicker extends StatefulWidget {
  @override State<PizzaRecipePicker> createState()=>_PizzaRecipePickerState();
 }
 class _PizzaRecipePickerState extends State<PizzaRecipePicker> {
- bool personal=true;
+ PizzaRecipe? selectedRecipe;
+ bool personal=false;
  bool cream=false;
  int eighths=8;
- final dough=TextEditingController(text:'200');
+ final dough=TextEditingController(text:'285');
  final sauce=TextEditingController(text:'60');
  final mozzarella=TextEditingController(text:'80');
  final emmental=TextEditingController(text:'0');
@@ -25,6 +27,24 @@ class _PizzaRecipePickerState extends State<PizzaRecipePicker> {
  final List<String> extraItems=[];
  final List<FoodScanResult> scanned=[];
  @override void dispose(){for(final c in [dough,sauce,mozzarella,emmental,cheddar,extras]){c.dispose();}super.dispose();}
+ void selectRecipe(PizzaRecipe? recipe){
+  if(recipe==null)return;
+  setState((){
+   selectedRecipe=recipe;
+   cream=recipe.base=='crème';
+   dough.text='285';personal=false;
+   sauce.text=cream?'100':'100';
+   mozzarella.text='0';emmental.text='0';cheddar.text='0';
+   extraItems.clear();
+   for(final ingredient in recipe.ingredients){
+    final lower=ingredient.toLowerCase();
+    if(lower=='mozzarella'){mozzarella.text='80';}
+    else if(lower=='emmental'){emmental.text='80';}
+    else if(lower=='cheddar'){cheddar.text='40';}
+    else {extraItems.add(ingredient+' 40g');}
+   }
+  });
+ }
  void addExtra(){final item=extras.text.trim();if(item.isEmpty)return;setState((){extraItems.add(item);extras.clear();});}
  void resizeRecipe(double grams){
   final previous=double.tryParse(dough.text.replaceAll(',','.'))??285;
@@ -47,6 +67,8 @@ class _PizzaRecipePickerState extends State<PizzaRecipePicker> {
  @override Widget build(BuildContext context)=>AlertDialog(
  title:const Text('Ma pizza maison'),
  content:SingleChildScrollView(child:Column(mainAxisSize:MainAxisSize.min,children:[
+ DropdownButtonFormField<String>(value:selectedRecipe?.name,decoration:const InputDecoration(labelText:'Recette La Casita'),hint:Text('Choisir une pizza'),isExpanded:true,items:[for(final recipe in pizzaRecipes)DropdownMenuItem(value:recipe.name,child:Text(recipe.name,overflow:TextOverflow.ellipsis))],onChanged:(name){for(final recipe in pizzaRecipes){if(recipe.name==name){selectRecipe(recipe);break;}}}),
+ const Text('Grammages indicatifs : corrige-les selon ta recette réelle.',style:TextStyle(fontSize:12)),
  SwitchListTile(title:const Text('Pizza personnelle'),subtitle:Text(personal?'Pâton de 200 g':'Pâton de 285 g'),value:personal,onChanged:(v){personal=v;resizeRecipe(v?200:285);}),
  amount('Pâte crue maison',dough),
  SwitchListTile(title:Text(cream?'Crème liquide':'Sauce Mutti Pizza'),value:cream,onChanged:(v)=>setState(()=>cream=v)),
@@ -83,6 +105,6 @@ class _PizzaRecipePickerState extends State<PizzaRecipePicker> {
    });
   }
   double sum(double Function(FoodScanResult) field)=>scanned.fold<double>(0,(v,p)=>v+field(p)*p.grams*fraction/100);
-  Navigator.pop(context,PizzaSelection(parts.join(', '),kcal:sum((p)=>p.kcal),protein:sum((p)=>p.protein),carbs:sum((p)=>p.carbs),fat:sum((p)=>p.fat)));
+  Navigator.pop(context,PizzaSelection((selectedRecipe==null?'Pizza maison':selectedRecipe!.name)+': '+parts.join(', '),kcal:sum((p)=>p.kcal),protein:sum((p)=>p.protein),carbs:sum((p)=>p.carbs),fat:sum((p)=>p.fat)));
  },child:const Text('Utiliser'))]);
 }
