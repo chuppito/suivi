@@ -23,22 +23,41 @@ class _FoodNameSearchState extends State<FoodNameSearch> {
   try {
    final local=await widget.db.query('food_library',where:'LOWER(name) LIKE ?',whereArgs:['%'+name.toLowerCase()+'%'],limit:25);
    for(final p in local){found.add(FoodScanResult(p['name'].toString(),number(p['kcal']),number(p['protein']),number(p['carbs']),number(p['fat']),100));}
-   final uri=Uri.https('world.openfoodfacts.org','/cgi/search.pl',{'search_terms':name,'search_simple':'1','action':'process','json':'1','page_size':'30','fields':'product_name,nutriments'});
-   final response=await http.get(uri,headers:{'User-Agent':'SuiviNutritionCorps/0.2 (https://github.com/chuppito/suivi)'}).timeout(const Duration(seconds:12));
-   if(response.statusCode==200){
-    final data=jsonDecode(response.body) as Map<String,dynamic>;
-    for(final raw in (data['products'] as List? ?? [])){
-     if(raw is! Map)continue;
-     final p=Map<String,dynamic>.from(raw);
-     final label=(p['product_name']??'').toString().trim();
-     if(label.isEmpty||p['nutriments'] is! Map)continue;
-     final n=Map<String,dynamic>.from(p['nutriments'] as Map);
-     final kcal=number(n['energy-kcal_100g']);
-     if(kcal<=0||found.any((f)=>f.name.toLowerCase()==label.toLowerCase()))continue;
-     found.add(FoodScanResult(label,kcal,number(n['proteins_100g']),number(n['carbohydrates_100g']),number(n['fat_100g']),100));
-    }
-   }else{error='Recherche en ligne indisponible.';}
-  }catch(e){error='Recherche en ligne indisponible. Résultats locaux affichés.';}
+   final urls=[
+    Uri.https('search.openfoodfacts.org','/search',{'q':name,'langs':'fr,en','page_size':'30'}),
+    Uri.https('world.openfoodfacts.org','/cgi/search.pl',{'search_terms':name,'search_simple':'1','action':'process','json':'1','page_size':'30','fields':'code,product_name,nutriments'}),
+   ];
+   final failures=<String>[];
+   bool onlineSuccess=false;
+   for(final uri in urls){
+    try{
+     final response=await http.get(uri,headers:{'User-Agent':'SuiviNutritionCorps/0.2 (https://github.com/chuppito/suivi)','Accept':'application/json'}).timeout(const Duration(seconds:10));
+     if(response.statusCode!=200){failures.add(uri.host+': HTTP '+response.statusCode.toString());continue;}
+     final data=jsonDecode(response.body);
+     if(data is! Map){failures.add(uri.host+': format inattendu');continue;}
+     final map=Map<String,dynamic>.from(data);
+     final products=map['products']??map['hits']??map['results'];
+     if(products is! List){failures.add(uri.host+': résultats non reconnus');continue;}
+     onlineSuccess=true;
+     for(final raw in products){
+      if(raw is! Map)continue;
+      final p=Map<String,dynamic>.from(raw);
+      final source=p['_source'] is Map?Map<String,dynamic>.from(p['_source'] as Map):p;
+      final label=(source['product_name_fr']??source['product_name']??'').toString().trim();
+      if(label.isEmpty||source['nutriments'] is! Map)continue;
+      final n=Map<String,dynamic>.from(source['nutriments'] as Map);
+      var kcal=number(n['energy-kcal_100g']);
+      if(kcal<=0){final kj=number(n['energy-kj_100g']);if(kj>0)kcal=kj/4.184;}
+      if(kcal<=0||found.any((f)=>f.name.toLowerCase()==label.toLowerCase()))continue;
+      found.add(FoodScanResult(label,kcal,number(n['proteins_100g']),number(n['carbohydrates_100g']),number(n['fat_100g']),100));
+     }
+     if(found.isNotEmpty)break;
+    }catch(e){failures.add(uri.host+': '+e.runtimeType.toString());}
+   }
+   if(!onlineSuccess&&failures.isNotEmpty)error='Recherche en ligne indisponible : '+failures.join(' ; ')+'. Bibliothèque locale disponible.';
+   else if(found.isEmpty)error='Aucun produit trouvé. Essaie un autre nom ou scanne son code-barres.';
+  }catch(e){error='Erreur de recherche : '+e.runtimeType.toString();}
+
   if(mounted)setState((){results=found;loading=false;});
  }
  Future<void> choose(FoodScanResult item) async {
