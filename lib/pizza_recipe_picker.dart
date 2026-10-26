@@ -16,7 +16,7 @@ class _PizzaRecipePickerState extends State<PizzaRecipePicker> {
  bool personal=true;
  bool cream=false;
  int eighths=8;
- final dough=TextEditingController(text:'220');
+ final dough=TextEditingController(text:'200');
  final sauce=TextEditingController(text:'60');
  final mozzarella=TextEditingController(text:'80');
  final emmental=TextEditingController(text:'0');
@@ -26,11 +26,28 @@ class _PizzaRecipePickerState extends State<PizzaRecipePicker> {
  final List<FoodScanResult> scanned=[];
  @override void dispose(){for(final c in [dough,sauce,mozzarella,emmental,cheddar,extras]){c.dispose();}super.dispose();}
  void addExtra(){final item=extras.text.trim();if(item.isEmpty)return;setState((){extraItems.add(item);extras.clear();});}
+ void resizeRecipe(double grams){
+  final previous=double.tryParse(dough.text.replaceAll(',','.'))??285;
+  if(previous<=0)return;
+  final factor=grams/previous;
+  for(final c in [sauce,mozzarella,emmental,cheddar]){
+   final value=double.tryParse(c.text.replaceAll(',','.'))??0;
+   c.text=(value*factor).toStringAsFixed(1);
+  }
+  for(var i=0;i<extraItems.length;i++){
+   extraItems[i]=extraItems[i].replaceAllMapped(RegExp(r'(\d+(?:[.,]\d+)?)\s*g\b',caseSensitive:false),(m){
+    final value=double.tryParse(m.group(1)!.replaceAll(',','.'))??0;
+    return (value*factor).toStringAsFixed(1)+'g';
+   });
+  }
+  dough.text=grams.toStringAsFixed(0);
+  setState((){});
+ }
  Widget amount(String label,TextEditingController c)=>TextField(controller:c,keyboardType:TextInputType.number,decoration:InputDecoration(labelText:label,suffixText:'g'));
  @override Widget build(BuildContext context)=>AlertDialog(
  title:const Text('Ma pizza maison'),
  content:SingleChildScrollView(child:Column(mainAxisSize:MainAxisSize.min,children:[
- SwitchListTile(title:const Text('Pizza personnelle'),subtitle:Text(personal?'Pâton de 220 g':'Pâton de 285 g'),value:personal,onChanged:(v)=>setState((){personal=v;dough.text=v?'220':'285';sauce.text=v?'60':'100';})),
+ SwitchListTile(title:const Text('Pizza personnelle'),subtitle:Text(personal?'Pâton de 200 g':'Pâton de 285 g'),value:personal,onChanged:(v){personal=v;resizeRecipe(v?200:285);}),
  amount('Pâte crue maison',dough),
  SwitchListTile(title:Text(cream?'Crème liquide':'Sauce Mutti Pizza'),value:cream,onChanged:(v)=>setState(()=>cream=v)),
  amount(cream?'Crème liquide':'Sauce Mutti',sauce),
