@@ -67,7 +67,7 @@ class _PizzaRecipePickerState extends State<PizzaRecipePicker> {
  @override Widget build(BuildContext context)=>AlertDialog(
  title:const Text('Ma pizza maison'),
  content:SingleChildScrollView(child:Column(mainAxisSize:MainAxisSize.min,children:[
- DropdownButtonFormField<String>(value:selectedRecipe?.name,decoration:const InputDecoration(labelText:'Recette La Casita'),hint:Text('Choisir une pizza'),isExpanded:true,items:[for(final recipe in pizzaRecipes)DropdownMenuItem(value:recipe.name,child:Text(recipe.name,overflow:TextOverflow.ellipsis))],onChanged:(name){for(final recipe in pizzaRecipes){if(recipe.name==name){selectRecipe(recipe);break;}}}),
+ DropdownButtonFormField<String>(value:selectedRecipe?.name,decoration:const InputDecoration(labelText:'Recette La Casita'),hint:Text('Choisir une pizza'),isExpanded:true,items:[for(final recipe in ([...pizzaRecipes]..sort((a,b)=>a.name.toLowerCase().compareTo(b.name.toLowerCase()))))DropdownMenuItem(value:recipe.name,child:Text(recipe.name,overflow:TextOverflow.ellipsis))],onChanged:(name){for(final recipe in pizzaRecipes){if(recipe.name==name){selectRecipe(recipe);break;}}}),
  const Text('Grammages indicatifs : corrige-les selon ta recette réelle.',style:TextStyle(fontSize:12)),
  SwitchListTile(title:const Text('Pizza personnelle'),subtitle:Text(personal?'Pâton de 200 g':'Pâton de 285 g'),value:personal,onChanged:(v){personal=v;resizeRecipe(v?200:285);}),
  amount('Pâte crue maison',dough),
