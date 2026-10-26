@@ -29,7 +29,8 @@ class _FoodNameSearchState extends State<FoodNameSearch> {
     final data=jsonDecode(response.body) as Map<String,dynamic>;
     for(final raw in (data['products'] as List? ?? [])){
      if(raw is! Map)continue;
-     final p=Map<String,dynamic>.from(raw),label=(p['product_name']??'').toString().trim();
+     final p=Map<String,dynamic>.from(raw);
+     final label=(p['product_name']??'').toString().trim();
      if(label.isEmpty||p['nutriments'] is! Map)continue;
      final n=Map<String,dynamic>.from(p['nutriments'] as Map);
      final kcal=number(n['energy-kcal_100g']);
