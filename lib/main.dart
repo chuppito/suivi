@@ -398,7 +398,7 @@ String normalizeMealDescription(String input) {
  return (unknown.join(', '),parts.length);
 }
 (double,double,double,double,int) estimateFoods(String input) {
- double kcal=0,proteinTotal=0,carbs=0,fat=0;
+ double kcal=0,protein=0,carbs=0,fat=0;
  int recognized=0;
  for(final raw in normalizeMealDescription(input).split(RegExp(r'[,;\n]+'))){
   final item=raw.trim();
@@ -434,7 +434,7 @@ class _MealsState extends State<Meals>{DateTime selected=DateTime.now();String g
  }
  bool isKnown(String item)=>libraryValues.containsKey(item)||describeEstimate(item).$1.isEmpty;
  void refreshNutrition(){
-  double kcal=0,protein=0,carbs=0,fat=0;
+  double kcal=0,proteinTotal=0,carbs=0,fat=0;
   final missing=<String>[];
   for(final item in ingredientItems){
    final saved=libraryValues[item];
