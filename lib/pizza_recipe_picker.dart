@@ -58,7 +58,14 @@ class _PizzaRecipePickerState extends State<PizzaRecipePicker> {
   if([d,sa,mo,em,ch].any((v)=>v==null||v<0)||d==0){ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content:Text('Vérifier les quantités.')));return;}
   final parts=<String>['pâte pizza maison ${d!.toStringAsFixed(0)}g',if(sa!>0)'${cream?'crème liquide':'sauce mutti pizza'} ${sa!.toStringAsFixed(0)}g',if(mo!>0)'mozzarella ${mo!.toStringAsFixed(0)}g',if(em!>0)'emmental ${em!.toStringAsFixed(0)}g',if(ch!>0)'cheddar ${ch!.toStringAsFixed(0)}g',...extraItems,if(extras.text.trim().isNotEmpty)extras.text.trim()];
   for(final product in scanned){parts.add('${product.name} ${product.grams.toStringAsFixed(0)}g');}
-  double sum(double Function(FoodScanResult) field)=>scanned.fold<double>(0,(v,p)=>v+field(p)*p.grams/100);
+  final fraction=eighths/8.0;
+  for(var i=0;i<parts.length;i++){
+   parts[i]=parts[i].replaceAllMapped(RegExp(r'(\d+(?:[.,]\d+)?)\s*g\b',caseSensitive:false),(m){
+    final n=double.tryParse(m.group(1)!.replaceAll(',','.'));
+    return n==null?m.group(0)!:(n*fraction).toStringAsFixed(1)+'g';
+   });
+  }
+  double sum(double Function(FoodScanResult) field)=>scanned.fold<double>(0,(v,p)=>v+field(p)*p.grams*fraction/100);
   Navigator.pop(context,PizzaSelection(parts.join(', '),kcal:sum((p)=>p.kcal),protein:sum((p)=>p.protein),carbs:sum((p)=>p.carbs),fat:sum((p)=>p.fat)));
  },child:const Text('Utiliser'))]);
 }
