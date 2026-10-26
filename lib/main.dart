@@ -161,6 +161,21 @@ class _DashboardState extends State<Dashboard> {
         return kcal>0&&kcal<=(goal??2350)&&pts<=pointsGoal;
       }
       final now=DateTime.now();
+      final yesterday=DateTime(now.year,now.month,now.day).subtract(const Duration(days:1));
+      int streak=0;
+      for(var i=0;i<3650&&achieved(yesterday.subtract(Duration(days:i)));i++){streak++;}
+      int record=0,run=0;
+      DateTime? previous;
+      final keys=grouped.keys.toList()..sort();
+      for(final key in keys){
+        final date=DateTime.tryParse(key);
+        if(date==null||date.isAfter(yesterday))continue;
+        if(achieved(date)){
+          run=previous!=null&&date.difference(previous!).inDays==1?run+1:1;
+          if(run>record)record=run;
+        }else{run=0;}
+        previous=date;
+      }
       final monday=DateTime(now.year,now.month,now.day).subtract(Duration(days:now.weekday-1));
       final sunday=monday.add(const Duration(days:6));
       final mondayKey=monday.toIso8601String().substring(0,10);
