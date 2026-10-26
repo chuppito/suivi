@@ -15,6 +15,7 @@ class PizzaRecipePicker extends StatefulWidget {
 class _PizzaRecipePickerState extends State<PizzaRecipePicker> {
  bool personal=true;
  bool cream=false;
+ int eighths=8;
  final dough=TextEditingController(text:'220');
  final sauce=TextEditingController(text:'60');
  final mozzarella=TextEditingController(text:'80');
@@ -34,6 +35,7 @@ class _PizzaRecipePickerState extends State<PizzaRecipePicker> {
  SwitchListTile(title:Text(cream?'Crème liquide':'Sauce Mutti Pizza'),value:cream,onChanged:(v)=>setState(()=>cream=v)),
  amount(cream?'Crème liquide':'Sauce Mutti',sauce),
  amount('Mozzarella',mozzarella),amount('Emmental',emmental),amount('Cheddar râpé',cheddar),
+ DropdownButtonFormField<int>(value:eighths,decoration:const InputDecoration(labelText:'Portion mangée'),items:[for(var i=1;i<=8;i++)DropdownMenuItem(value:i,child:Text(i==8?'Pizza entière':i.toString()+'/8 de la pizza'))],onChanged:(v){if(v!=null)setState(()=>eighths=v);}),
  Row(children:[
  Expanded(child:TextField(controller:extras,decoration:const InputDecoration(labelText:'Ajouter une garniture',hintText:'Ex : poivron 100g'),onSubmitted:(_)=>addExtra())),
  IconButton(tooltip:'Ajouter cet ingrédient',onPressed:addExtra,icon:const Icon(Icons.add_circle_outline)),
@@ -51,7 +53,7 @@ class _PizzaRecipePickerState extends State<PizzaRecipePicker> {
  ])),
  actions:[TextButton(onPressed:()=>Navigator.pop(context),child:const Text('Annuler')),
  FilledButton(onPressed:(){
-  double? value(TextEditingController c)=>double.tryParse(c.text.replaceAll(',','.'));
+  double? value(TextEditingController c)=>c.text.trim().isEmpty?0:double.tryParse(c.text.replaceAll(',','.'));
   final d=value(dough),sa=value(sauce),mo=value(mozzarella),em=value(emmental),ch=value(cheddar);
   if([d,sa,mo,em,ch].any((v)=>v==null||v<0)||d==0){ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content:Text('Vérifier les quantités.')));return;}
   final parts=<String>['pâte pizza maison ${d!.toStringAsFixed(0)}g',if(sa!>0)'${cream?'crème liquide':'sauce mutti pizza'} ${sa!.toStringAsFixed(0)}g',if(mo!>0)'mozzarella ${mo!.toStringAsFixed(0)}g',if(em!>0)'emmental ${em!.toStringAsFixed(0)}g',if(ch!>0)'cheddar ${ch!.toStringAsFixed(0)}g',...extraItems,if(extras.text.trim().isNotEmpty)extras.text.trim()];
