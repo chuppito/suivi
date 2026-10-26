@@ -207,9 +207,9 @@ class _DashboardState extends State<Dashboard> {
               subtitle: Text("Tour de taille : ${fmt(measures.first['waist'])} cm • ${measures.first['date']}"),
             )),
           const SizedBox(height: 12),
-          Card(child:ListTile(
-            leading:const Icon(Icons.local_fire_department_outlined),
-            title:Text('
+          Card(child: ListTile(
+            leading: const Icon(Icons.local_fire_department_outlined),
+            title: Text('
           Card(child: ListTile(
             title: Text("${calories.toStringAsFixed(0)} kcal estimées"),
             subtitle: Text(goal == null ? "${meals.length} repas enregistré(s)" : "${meals.length} repas • objectif : $goal kcal"),
@@ -554,7 +554,7 @@ class More extends StatelessWidget{final VoidCallback reload;const More({super.k
  });
 }),const ListTile(title:Text('Analyse IA des photos'),subtitle:Text('À venir : aucune photo n’est transmise à un serveur.'))]);}
 +'{streak} jour'+(streak==1?'':'s')+' consécutif'+(streak==1?'':'s')+' dans les objectifs'),
-            subtitle:Text('Record : 
+            subtitle: Text('Record : 
           Card(child: ListTile(
             title: Text("${calories.toStringAsFixed(0)} kcal estimées"),
             subtitle: Text(goal == null ? "${meals.length} repas enregistré(s)" : "${meals.length} repas • objectif : $goal kcal"),
@@ -898,7 +898,7 @@ class More extends StatelessWidget{final VoidCallback reload;const More({super.k
  reload();
  });
 }),const ListTile(title:Text('Analyse IA des photos'),subtitle:Text('À venir : aucune photo n’est transmise à un serveur.'))]);}
-+'{record} jours. Journées terminées avec petit-déjeuner, déjeuner et dîner renseignés, sans dépasser calories ni points.'),
++'{record} jours. Journées terminées : trois repas renseignés, calories et points respectés.'),
           )),
           Text('Aujourd’hui', style: Theme.of(context).textTheme.titleLarge),
           Card(child: ListTile(
