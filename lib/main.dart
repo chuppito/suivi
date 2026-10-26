@@ -455,7 +455,7 @@ class _MealsState extends State<Meals>{DateTime selected=DateTime.now();String g
  Expanded(child:TextField(controller:ingredientInput,decoration:const InputDecoration(labelText:'Ajouter un aliment et sa portion',hintText:'Ex : 2 œufs ou poulet 100g'),onSubmitted:(_)async{await addIngredient();if(ctx.mounted)setLocal((){});})),
  IconButton(tooltip:'Ajouter cet aliment',icon:const Icon(Icons.add_circle_outline),onPressed:()async{await addIngredient();if(ctx.mounted)setLocal((){});}),
 ]),
-for(final item in ingredientItems.asMap().entries)ListTile(dense:true,leading:Icon(describeEstimate(item.value).$1.isEmpty?Icons.check_circle:Icons.warning_amber,color:describeEstimate(item.value).$1.isEmpty?Colors.green:Colors.orange),title:Text(item.value),subtitle:Text(describeEstimate(item.value).$1.isEmpty?'Reconnu • '+estimateFoods(item.value).$1.toStringAsFixed(0)+' kcal estimées':'Non reconnu : compléter les valeurs'),trailing:IconButton(tooltip:'Retirer cet aliment',icon:const Icon(Icons.close),onPressed:()=>setLocal((){ingredientItems.removeAt(item.key);syncIngredients();refreshNutrition();}))),
+for(final item in ingredientItems.asMap().entries)ListTile(dense:true,leading:Icon(isKnown(item.value)?Icons.check_circle:Icons.warning_amber,color:isKnown(item.value)?Colors.green:Colors.orange),title:Text(item.value),subtitle:Text(isKnown(item.value)?'Reconnu • '+(libraryValues[item.value]!=null?(libraryValues[item.value]!.kcal*gramsFor(item.value)/100).toStringAsFixed(0):estimateFoods(item.value).$1.toStringAsFixed(0))+' kcal estimées':'Non reconnu : compléter les valeurs'),trailing:IconButton(tooltip:'Retirer cet aliment',icon:const Icon(Icons.close),onPressed:()=>setLocal((){libraryValues.remove(item.value);ingredientItems.removeAt(item.key);syncIngredients();refreshNutrition();}))),
 TextButton.icon(onPressed:() async{
  final product=await Navigator.of(ctx).push<FoodScanResult>(MaterialPageRoute(builder:(_)=>FoodNameSearch(db:Store.db)));
  if(product==null||!ctx.mounted)return;
@@ -463,13 +463,8 @@ TextButton.icon(onPressed:() async{
  setLocal((){
   final item=product.name+' '+product.grams.toStringAsFixed(0)+'g';
   ingredientItems.add(item);
-  syncIngredients();
-  double current(TextEditingController c)=>double.tryParse(c.text.replaceAll(',','.'))??0;
-  cal.text=(current(cal)+product.kcal*factor).ceil().toString();
-  pro.text=(current(pro)+product.protein*factor).toStringAsFixed(1);
-  carb.text=(current(carb)+product.carbs*factor).toStringAsFixed(1);
-  fat.text=(current(fat)+product.fat*factor).toStringAsFixed(1);
-  unc.text='Valeurs issues de la bibliothèque ou Open Food Facts : vérifier les étiquettes.';
+  libraryValues[item]=product;
+  syncIngredients();refreshNutrition();
  });
 },icon:const Icon(Icons.search),label:const Text('Rechercher un aliment dans la base')),
 TextButton.icon(onPressed:()async{
