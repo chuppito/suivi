@@ -419,11 +419,41 @@ class _MealsState extends State<Meals>{DateTime selected=DateTime.now();String g
  final ingredientInput=TextEditingController();
  final ingredientItems=<String>[...desc.text.split(',').map((e)=>e.trim()).where((e)=>e.isNotEmpty)];
  void syncIngredients(){desc.text=ingredientItems.join(', ');}
- void refreshNutrition(){final e=estimateFoods(desc.text);cal.text=(e.$1*1.1).ceil().toString();pro.text=e.$2.toStringAsFixed(1);carb.text=e.$3.toStringAsFixed(1);fat.text=e.$4.toStringAsFixed(1);unc.text=describeEstimate(desc.text).$1;}
- void addIngredient(){final item=ingredientInput.text.trim();if(item.isEmpty)return;ingredientItems.add(item);syncIngredients();refreshNutrition();ingredientInput.clear();}
+ final libraryValues=<String,FoodScanResult>{};
+ double gramsFor(String item){final m=RegExp(r'(\\d+(?:[.,]\\d+)?)\\s*(kg|g|ml|cl|l)\\b',caseSensitive:false).firstMatch(item);if(m==null)return 100;final n=double.tryParse(m.group(1)!.replaceAll(',','.'))??100;switch(m.group(2)!.toLowerCase()){case 'kg':return n*1000;case 'cl':return n*10;case 'l':return n*1000;default:return n;}}
+ Future<FoodScanResult?> findSaved(String item) async{
+  final rows=await Store.db.query('food_library',orderBy:'LENGTH(name) DESC');
+  final lower=item.toLowerCase();
+  for(final row in rows){
+   final name=(row['name']??'').toString();
+   if(name.isEmpty||!lower.contains(name.toLowerCase()))continue;
+   double val(String key)=>((row[key] as num?)?.toDouble()??0);
+   return FoodScanResult(name,val('kcal'),val('protein'),val('carbs'),val('fat'),gramsFor(item));
+  }
+  return null;
+ }
+ bool isKnown(String item)=>libraryValues.containsKey(item)||describeEstimate(item).$1.isEmpty;
+ void refreshNutrition(){
+  double kcal=0,protein=0,carbs=0,fat=0;
+  final missing=<String>[];
+  for(final item in ingredientItems){
+   final saved=libraryValues[item];
+   if(saved!=null){final factor=gramsFor(item)/100;kcal+=saved.kcal*factor;protein+=saved.protein*factor;carbs+=saved.carbs*factor;fat+=saved.fat*factor;}
+   else {final e=estimateFoods(item);kcal+=e.$1;protein+=e.$2;carbs+=e.$3;fat+=e.$4;if(describeEstimate(item).$1.isNotEmpty)missing.add(item);}
+  }
+  cal.text=(kcal*1.1).ceil().toString();pro.text=protein.toStringAsFixed(1);carb.text=carbs.toStringAsFixed(1);fat.text=fat.toStringAsFixed(1);
+  unc.text=missing.isEmpty?'Estimation indicative (+10 %).':'Aliments non reconnus : '+missing.join(', ');
+ }
+ Future<void> addIngredient()async{
+  final item=ingredientInput.text.trim();if(item.isEmpty)return;
+  final saved=await findSaved(item);
+  ingredientItems.add(item);
+  if(saved!=null)libraryValues[item]=saved;
+  syncIngredients();refreshNutrition();ingredientInput.clear();
+ }
  await showModalBottomSheet(context:context,isScrollControlled:true,useSafeArea:true,builder:(ctx)=>StatefulBuilder(builder:(ctx,setLocal)=>Padding(padding:EdgeInsets.fromLTRB(16,16,16,MediaQuery.of(ctx).viewInsets.bottom+MediaQuery.of(ctx).viewPadding.bottom+24),child:SingleChildScrollView(child:Column(mainAxisSize:MainAxisSize.min,children:[const Text('Repas : valeurs estimées, à vérifier'),DropdownButtonFormField<String>(value:mealCategories.contains(category.text)?category.text:'Déjeuner',decoration:const InputDecoration(labelText:'Catégorie du repas'),items:[for(final name in mealCategories)DropdownMenuItem(value:name,child:Text(name))],onChanged:(v){if(v!=null)category.text=v;}),for(final f in [('Date',date),('Calories (kcal)',cal),('Protéines (g)',pro),('Glucides (g)',carb),('Lipides (g)',fat),('Incertitudes',unc),('Commentaires',notes)])TextField(controller:f.$2,decoration:InputDecoration(labelText:f.$1)),Row(children:[
- Expanded(child:TextField(controller:ingredientInput,decoration:const InputDecoration(labelText:'Ajouter un aliment et sa portion',hintText:'Ex : 2 œufs ou poulet 100g'),onSubmitted:(_)=>setLocal(addIngredient))),
- IconButton(tooltip:'Ajouter cet aliment',icon:const Icon(Icons.add_circle_outline),onPressed:()=>setLocal(addIngredient)),
+ Expanded(child:TextField(controller:ingredientInput,decoration:const InputDecoration(labelText:'Ajouter un aliment et sa portion',hintText:'Ex : 2 œufs ou poulet 100g'),onSubmitted:(_)async{await addIngredient();if(ctx.mounted)setLocal((){});})),
+ IconButton(tooltip:'Ajouter cet aliment',icon:const Icon(Icons.add_circle_outline),onPressed:()async{await addIngredient();if(ctx.mounted)setLocal((){});}),
 ]),
 for(final item in ingredientItems.asMap().entries)ListTile(dense:true,leading:Icon(describeEstimate(item.value).$1.isEmpty?Icons.check_circle:Icons.warning_amber,color:describeEstimate(item.value).$1.isEmpty?Colors.green:Colors.orange),title:Text(item.value),subtitle:Text(describeEstimate(item.value).$1.isEmpty?'Reconnu • '+estimateFoods(item.value).$1.toStringAsFixed(0)+' kcal estimées':'Non reconnu : compléter les valeurs'),trailing:IconButton(tooltip:'Retirer cet aliment',icon:const Icon(Icons.close),onPressed:()=>setLocal((){ingredientItems.removeAt(item.key);syncIngredients();refreshNutrition();}))),
 TextButton.icon(onPressed:() async{
