@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'food_barcode_scanner.dart';
+import 'food_name_search.dart';
 import 'pizza_recipe_picker.dart';
 import 'product_history.dart';
 import 'nutrition_reports.dart';
@@ -425,6 +426,22 @@ class _MealsState extends State<Meals>{DateTime selected=DateTime.now();String g
  IconButton(tooltip:'Ajouter cet aliment',icon:const Icon(Icons.add_circle_outline),onPressed:()=>setLocal(addIngredient)),
 ]),
 for(final item in ingredientItems.asMap().entries)ListTile(dense:true,leading:Icon(describeEstimate(item.value).$1.isEmpty?Icons.check_circle:Icons.warning_amber,color:describeEstimate(item.value).$1.isEmpty?Colors.green:Colors.orange),title:Text(item.value),subtitle:Text(describeEstimate(item.value).$1.isEmpty?'Reconnu • '+estimateFoods(item.value).$1.toStringAsFixed(0)+' kcal estimées':'Non reconnu : compléter les valeurs'),trailing:IconButton(tooltip:'Retirer cet aliment',icon:const Icon(Icons.close),onPressed:()=>setLocal((){ingredientItems.removeAt(item.key);syncIngredients();refreshNutrition();}))),
+TextButton.icon(onPressed:() async{
+ final product=await Navigator.of(ctx).push<FoodScanResult>(MaterialPageRoute(builder:(_)=>FoodNameSearch(db:Store.db)));
+ if(product==null||!ctx.mounted)return;
+ final factor=product.grams/100;
+ setLocal((){
+  final item=product.name+' '+product.grams.toStringAsFixed(0)+'g';
+  ingredientItems.add(item);
+  syncIngredients();
+  double current(TextEditingController c)=>double.tryParse(c.text.replaceAll(',','.'))??0;
+  cal.text=(current(cal)+product.kcal*factor).ceil().toString();
+  pro.text=(current(pro)+product.protein*factor).toStringAsFixed(1);
+  carb.text=(current(carb)+product.carbs*factor).toStringAsFixed(1);
+  fat.text=(current(fat)+product.fat*factor).toStringAsFixed(1);
+  unc.text='Valeurs issues de la bibliothèque ou Open Food Facts : vérifier les étiquettes.';
+ });
+},icon:const Icon(Icons.search),label:const Text('Rechercher un aliment dans la base')),
 TextButton.icon(onPressed:()async{
  await Navigator.of(ctx).push(MaterialPageRoute(builder:(_)=>ProductHistory(db:Store.db,onAdded:widget.reload)));
  if(ctx.mounted)setLocal((){});
