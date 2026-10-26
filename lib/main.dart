@@ -351,7 +351,7 @@ const foodReference = <String, (double,double,double,double)>{
  'pain':(265,9,49,3.2),'riz cuit':(130,2.7,28,0.3),
  'pâtes cuites':(155,5.8,30,0.9),'poulet':(165,31,0,3.6),
  'saumon':(208,20,0,13),'oeuf':(143,13,1.1,9.5),
- 'œuf':(143,13,1.1,9.5),'banane':(89,1.1,23,0.3),
+ 'œuf':(143,13,1.1,9.5),'oeufs':(143,13,1.1,9.5),'œufs':(143,13,1.1,9.5),'orange':(47,0.9,11.8,0.1),'oranges':(47,0.9,11.8,0.1),'banane':(89,1.1,23,0.3),
  'pomme de terre':(87,1.9,20,0.1),'pomme':(52,0.3,14,0.2),
  'brocoli':(35,2.4,7,0.4),'huile olive':(884,0,0,100),
  'huile':(884,0,0,100),'beurre':(717,0.9,0.1,81),
@@ -375,6 +375,8 @@ double? estimateGrams(String item,String food) {
  if(RegExp(r'cuill[eè]res?\s+(?:[àa]\s+)?(?:soupe|de)|c\.?\s*[àa]\s*s\.?').hasMatch(item)){
   return count*(food.contains('nesquik')?15:food.contains('miel')?22:food.contains('beurre')?15:15);
  }
+ if(RegExp(r'\b(?:oeufs?|œufs?)\b').hasMatch(food))return count*50;
+ if(RegExp(r'\boranges?\b').hasMatch(food))return count*130;
  if(RegExp(r'bols?\b').hasMatch(item))return count*250;
  if(RegExp(r'verres?\b').hasMatch(item))return count*200;
  if(RegExp(r'tranches?\b').hasMatch(item))return count*(food.contains('pain')?25:25);
