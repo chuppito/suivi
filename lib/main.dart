@@ -398,7 +398,7 @@ String normalizeMealDescription(String input) {
  return (unknown.join(', '),parts.length);
 }
 (double,double,double,double,int) estimateFoods(String input) {
- double kcal=0,protein=0,carbs=0,fat=0;
+ double kcal=0,proteinTotal=0,carbs=0,fat=0;
  int recognized=0;
  for(final raw in normalizeMealDescription(input).split(RegExp(r'[,;\n]+'))){
   final item=raw.trim();
@@ -438,10 +438,10 @@ class _MealsState extends State<Meals>{DateTime selected=DateTime.now();String g
   final missing=<String>[];
   for(final item in ingredientItems){
    final saved=libraryValues[item];
-   if(saved!=null){final factor=gramsFor(item)/100;kcal+=saved.kcal*factor;protein+=saved.protein*factor;carbs+=saved.carbs*factor;fat+=saved.fat*factor;}
-   else {final e=estimateFoods(item);kcal+=e.$1;protein+=e.$2;carbs+=e.$3;fat+=e.$4;if(describeEstimate(item).$1.isNotEmpty)missing.add(item);}
+   if(saved!=null){final factor=gramsFor(item)/100;kcal+=saved.kcal*factor;proteinTotal+=saved.protein*factor;carbs+=saved.carbs*factor;fat+=saved.fat*factor;}
+   else {final e=estimateFoods(item);kcal+=e.$1;proteinTotal+=e.$2;carbs+=e.$3;fat+=e.$4;if(describeEstimate(item).$1.isNotEmpty)missing.add(item);}
   }
-  cal.text=(kcal*1.1).ceil().toString();pro.text=protein.toStringAsFixed(1);carb.text=carbs.toStringAsFixed(1);fat.text=fat.toStringAsFixed(1);
+  cal.text=(kcal*1.1).ceil().toString();pro.text=proteinTotal.toStringAsFixed(1);carb.text=carbs.toStringAsFixed(1);fat.text=fat.toStringAsFixed(1);
   unc.text=missing.isEmpty?'Estimation indicative (+10 %).':'Aliments non reconnus : '+missing.join(', ');
  }
  Future<void> addIngredient()async{
