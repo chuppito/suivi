@@ -420,7 +420,7 @@ class _MealsState extends State<Meals>{DateTime selected=DateTime.now();String g
  final ingredientItems=<String>[...desc.text.split(',').map((e)=>e.trim()).where((e)=>e.isNotEmpty)];
  void syncIngredients(){desc.text=ingredientItems.join(', ');}
  final libraryValues=<String,FoodScanResult>{};
- double gramsFor(String item){final m=RegExp(r'(\\d+(?:[.,]\\d+)?)\\s*(kg|g|ml|cl|l)\\b',caseSensitive:false).firstMatch(item);if(m==null)return 100;final n=double.tryParse(m.group(1)!.replaceAll(',','.'))??100;switch(m.group(2)!.toLowerCase()){case 'kg':return n*1000;case 'cl':return n*10;case 'l':return n*1000;default:return n;}}
+ double gramsFor(String item){final m=RegExp(r'(\d+(?:[.,]\d+)?)\s*(kg|g|ml|cl|l)\b',caseSensitive:false).firstMatch(item);if(m==null)return 100;final n=double.tryParse(m.group(1)!.replaceAll(',','.'))??100;switch(m.group(2)!.toLowerCase()){case 'kg':return n*1000;case 'cl':return n*10;case 'l':return n*1000;default:return n;}}
  Future<FoodScanResult?> findSaved(String item) async{
   final rows=await Store.db.query('food_library',orderBy:'LENGTH(name) DESC');
   final lower=item.toLowerCase();
