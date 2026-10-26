@@ -21,8 +21,10 @@ class _PizzaRecipePickerState extends State<PizzaRecipePicker> {
  final emmental=TextEditingController(text:'0');
  final cheddar=TextEditingController(text:'0');
  final extras=TextEditingController();
+ final List<String> extraItems=[];
  final List<FoodScanResult> scanned=[];
  @override void dispose(){for(final c in [dough,sauce,mozzarella,emmental,cheddar,extras]){c.dispose();}super.dispose();}
+ void addExtra(){final item=extras.text.trim();if(item.isEmpty)return;setState((){extraItems.add(item);extras.clear();});}
  Widget amount(String label,TextEditingController c)=>TextField(controller:c,keyboardType:TextInputType.number,decoration:InputDecoration(labelText:label,suffixText:'g'));
  @override Widget build(BuildContext context)=>AlertDialog(
  title:const Text('Ma pizza maison'),
@@ -32,7 +34,12 @@ class _PizzaRecipePickerState extends State<PizzaRecipePicker> {
  SwitchListTile(title:Text(cream?'Crème liquide':'Sauce Mutti Pizza'),value:cream,onChanged:(v)=>setState(()=>cream=v)),
  amount(cream?'Crème liquide':'Sauce Mutti',sauce),
  amount('Mozzarella',mozzarella),amount('Emmental',emmental),amount('Cheddar râpé',cheddar),
- TextField(controller:extras,maxLines:2,decoration:const InputDecoration(labelText:'Garniture supplémentaire',hintText:'Ex : jambon 60g, champignons 50g')),
+ Row(children:[
+ Expanded(child:TextField(controller:extras,decoration:const InputDecoration(labelText:'Ajouter une garniture',hintText:'Ex : poivron 100g'),onSubmitted:(_)=>addExtra())),
+ IconButton(tooltip:'Ajouter cet ingrédient',onPressed:addExtra,icon:const Icon(Icons.add_circle_outline)),
+ ]),
+ for(final item in extraItems)ListTile(dense:true,leading:const Icon(Icons.check_circle,color:Colors.green),title:Text(item),trailing:IconButton(tooltip:'Retirer',onPressed:()=>setState(()=>extraItems.remove(item)),icon:const Icon(Icons.close))),
+
  const SizedBox(height:8),
  OutlinedButton.icon(onPressed:()async{
   final product=await Navigator.of(context).push<FoodScanResult>(MaterialPageRoute(builder:(_)=>FoodBarcodeScanner(db:widget.db)));
@@ -47,7 +54,7 @@ class _PizzaRecipePickerState extends State<PizzaRecipePicker> {
   double? value(TextEditingController c)=>double.tryParse(c.text.replaceAll(',','.'));
   final d=value(dough),sa=value(sauce),mo=value(mozzarella),em=value(emmental),ch=value(cheddar);
   if([d,sa,mo,em,ch].any((v)=>v==null||v<0)||d==0){ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content:Text('Vérifier les quantités.')));return;}
-  final parts=<String>['pâte pizza maison ${d!.toStringAsFixed(0)}g',if(sa!>0)'${cream?'crème liquide':'sauce mutti pizza'} ${sa!.toStringAsFixed(0)}g',if(mo!>0)'mozzarella ${mo!.toStringAsFixed(0)}g',if(em!>0)'emmental ${em!.toStringAsFixed(0)}g',if(ch!>0)'cheddar ${ch!.toStringAsFixed(0)}g',if(extras.text.trim().isNotEmpty)extras.text.trim()];
+  final parts=<String>['pâte pizza maison ${d!.toStringAsFixed(0)}g',if(sa!>0)'${cream?'crème liquide':'sauce mutti pizza'} ${sa!.toStringAsFixed(0)}g',if(mo!>0)'mozzarella ${mo!.toStringAsFixed(0)}g',if(em!>0)'emmental ${em!.toStringAsFixed(0)}g',if(ch!>0)'cheddar ${ch!.toStringAsFixed(0)}g',...extraItems,if(extras.text.trim().isNotEmpty)extras.text.trim()];
   for(final product in scanned){parts.add('${product.name} ${product.grams.toStringAsFixed(0)}g');}
   double sum(double Function(FoodScanResult) field)=>scanned.fold<double>(0,(v,p)=>v+field(p)*p.grams/100);
   Navigator.pop(context,PizzaSelection(parts.join(', '),kcal:sum((p)=>p.kcal),protein:sum((p)=>p.protein),carbs:sum((p)=>p.carbs),fat:sum((p)=>p.fat)));
