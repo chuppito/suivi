@@ -207,6 +207,11 @@ class _DashboardState extends State<Dashboard> {
               subtitle: Text("Tour de taille : ${fmt(measures.first['waist'])} cm • ${measures.first['date']}"),
             )),
           const SizedBox(height: 12),
+          Card(child: ListTile(
+            leading: const Icon(Icons.local_fire_department_outlined),
+            title: Text(streak.toString() + ' jours consécutifs dans les objectifs'),
+            subtitle: Text('Record : ' + record.toString() + ' jours. Journées terminées avec trois repas et budgets respectés.'),
+          )),
           Text('Aujourd’hui', style: Theme.of(context).textTheme.titleLarge),
           Card(child: ListTile(
             title: Text("${calories.toStringAsFixed(0)} kcal estimées"),
