@@ -555,129 +555,25 @@ TextButton.icon(onPressed:() async{
  if(accepted!=true||!ctx.mounted)return;
  double? number(TextEditingController c)=>double.tryParse(c.text.replaceAll(',','.'));
  if(number(inputs[0])==null||inputs.any((c)=>(number(c)??0)<0)){ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(content:Text('Calories obligatoires, valeurs positives.')));return;}
- final portionGrams=gramsFor(selected);
+ final grams=gramsFor(selected);
  final values=[for(final input in inputs)number(input)??0.0];
- final normalized=[for(final v in values)v*100/portionGrams];
- final productName=selected.replaceFirst(RegExp(r'\\s+\\d+(?:[.,]\\d+)?\\s*(?:kg|g|ml|cl|l)\\s*
-},icon:const Icon(Icons.edit_note),label:const Text('Compléter un aliment inconnu')),
-TextButton.icon(onPressed:(){final estimate=estimateFoods(desc.text);final missing=describeEstimate(desc.text);if(missing.$1.isNotEmpty){setLocal(()=>unc.text='Aliments non évalués : ${missing.$1}. Compléter ou vérifier les valeurs.');}if(estimate.$5==0){ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(content:Text('Indiquer un aliment et sa portion (ex : lait entier 1 bol, nesquik 2 cuillères à café, pain 4 tranches).')));return;}setLocal((){cal.text=(estimate.$1*1.1).ceilToDouble().toStringAsFixed(0);pro.text=estimate.$2.toStringAsFixed(1);carb.text=estimate.$3.toStringAsFixed(1);fat.text=estimate.$4.toStringAsFixed(1);unc.text='Estimation haute indicative (+10 %) sur ${estimate.$5} aliment(s). ${missing.$1.isNotEmpty ? 'Non reconnus : ${missing.$1}.' : ''}';});},icon:const Icon(Icons.calculate_outlined),label:const Text('Estimer les calories et macros')),const Text('Portions indicatives : cuillère à café 5 ml, cuillère à soupe 15 ml, bol 250 ml, verre 200 ml, petite tranche de pain 25 g. Les poids réels varient selon l’aliment. L’analyse photo par IA nécessite un service en ligne sécurisé.'),Wrap(children:[TextButton.icon(onPressed:() async{final x=await ImagePicker().pickImage(source:ImageSource.camera);if(x!=null){final dir=await getApplicationDocumentsDirectory();final dest=p.join(dir.path,'meal_${DateTime.now().microsecondsSinceEpoch}${p.extension(x.path)}');await File(x.path).copy(dest);setLocal(()=>photo=dest);}},icon:const Icon(Icons.camera_alt),label:const Text('Photo')),TextButton.icon(onPressed:() async{final x=await ImagePicker().pickImage(source:ImageSource.gallery);if(x!=null){final dir=await getApplicationDocumentsDirectory();final dest=p.join(dir.path,'meal_${DateTime.now().microsecondsSinceEpoch}${p.extension(x.path)}');await File(x.path).copy(dest);setLocal(()=>photo=dest);}},icon:const Icon(Icons.photo_library),label:const Text('Galerie')),if(photo!=null)TextButton(onPressed:(){setLocal(()=>photo=null);},child:const Text('Retirer la photo'))]),FilledButton(onPressed:() async{double? numValue(TextEditingController c)=>double.tryParse(c.text.replaceAll(',','.'));final estimate=estimateFoods(desc.text);
- final missing=ingredientItems.where((item)=>!isKnown(item)).join(', ');
- if(missing.isNotEmpty && numValue(cal)==null){ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(content:Text('Aliments non évalués : $missing. Compléter les calories manuellement.')));return;}
- if(estimate.$5==0 && numValue(cal)==null){ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(content:Text('Renseigne les calories ou des aliments avec leurs quantités.')));return;}
- final data={'date':date.text,'category':category.text,'description':desc.text,'photo':photo,'calories':numValue(cal),'protein':numValue(pro),'carbs':numValue(carb),'fat':numValue(fat),'uncertainty':unc.text,'notes':notes.text};if(row==null){await Store.db.insert('meals',data);}else{await Store.db.update('meals',data,where:'id=?',whereArgs:[row['id']]);}if(ctx.mounted)Navigator.pop(ctx);widget.reload();if(mounted)setState((){});},child:const Text('Valider le repas'))])))));}
- @override Widget build(BuildContext context)=>FutureBuilder(future:Store.all('meals',order:'date DESC'),builder:(c,s){final rows=(s.data??<Map<String,Object?>>[]).where((r)=>r['date']==selectedKey).toList();final calories=rows.fold<double>(0,(v,r)=>v+((r['calories'] as num?)?.toDouble()??0));final points=rows.fold<int>(0,(v,r)=>v+(mealPoints(r)??0));return Column(children:[Row(children:[IconButton(onPressed:()=>move(-1),icon:const Icon(Icons.chevron_left)),Expanded(child:TextButton.icon(onPressed:pick,icon:const Icon(Icons.calendar_month),label:Text(selectedKey))),IconButton(onPressed:()=>move(1),icon:const Icon(Icons.chevron_right)),TextButton(onPressed:()=>setState(()=>selected=DateTime.now()),child:const Text('Aujourd’hui'))]),Padding(padding:const EdgeInsets.all(8),child:Text('${rows.length} repas • ${calories.toStringAsFixed(0)} / 2350 kcal • $points / 48 points')),Expanded(child:ListView(children:[for(final r in rows)ListTile(leading:r['photo']!=null&&File(r['photo'] as String).existsSync()?Image.file(File(r['photo'] as String),width:55,height:55,fit:BoxFit.cover):const Icon(Icons.restaurant),title:Text('${r['category']} • ${r['date']}'),subtitle:Text('${r['description']}\n${fmt(r['calories'])} kcal estimées • ${mealPoints(r)?.toString() ?? '—'} points'),isThreeLine:true,onTap:()=>edit(context,r),trailing:PopupMenuButton<String>(onSelected:(v) async{if(v=='duplicate'){final data=Map<String,Object?>.from(r)..remove('id');data['date']=selectedKey;await Store.db.insert('meals',data);}else if(v=='delete'){await Store.db.delete('meals',where:'id=?',whereArgs:[r['id']]);}else if(v=='photo'){await Store.db.update('meals',{'photo':null},where:'id=?',whereArgs:[r['id']]);}widget.reload();if(mounted)setState((){});},itemBuilder:(_)=>const [PopupMenuItem(value:'duplicate',child:Text('Dupliquer')),PopupMenuItem(value:'photo',child:Text('Retirer la photo')),PopupMenuItem(value:'delete',child:Text('Supprimer'))]))])),Padding(padding:const EdgeInsets.symmetric(horizontal:12,vertical:5),child:FilledButton.icon(onPressed:()async{await Navigator.of(context).push(MaterialPageRoute(builder:(_)=>ProductHistory(db:Store.db,onAdded:widget.reload)));widget.reload();if(mounted)setState((){});},icon:const Icon(Icons.history),label:const Text('Historique des produits'))),FilledButton.icon(onPressed:()=>edit(context),icon:const Icon(Icons.add),label:const Text('Ajouter un repas'))]);});
-}
-class Supplements extends StatefulWidget {
- final VoidCallback reload;
- const Supplements({super.key,required this.reload});
- @override State<Supplements> createState()=>_SupplementsState();
-}
-class _SupplementsState extends State<Supplements> {
- late Future<List<List<Map<String,Object?>>>> future;
- @override void initState(){super.initState();refresh();}
- void refresh(){future=Future.wait([Store.all('supplements'),Store.all('intakes')]);}
- void changed(){setState(refresh);widget.reload();}
- Future<void> mark(Map<String,Object?> supplement,bool value) async {
-  if(value){
-   final exists=await Store.db.query('intakes',where:'supplement_id=? AND date=?',whereArgs:[supplement['id'],today()]);
-   if(exists.isEmpty)await Store.db.insert('intakes',{'supplement_id':supplement['id'],'date':today()});
-  }else{
-   await Store.db.delete('intakes',where:'supplement_id=? AND date=?',whereArgs:[supplement['id'],today()]);
-  }
- }
- @override Widget build(BuildContext context)=>FutureBuilder<List<List<Map<String,Object?>>>>(
- future:future,builder:(context,s){
-  if(s.hasError)return Center(child:Text('Erreur compléments : ${s.error}'));
-  if(!s.hasData)return const Center(child:CircularProgressIndicator());
-  final supplements=s.data![0];
-  final taken=s.data![1].where((r)=>r['date']==today()).map((r)=>r['supplement_id']).toSet();
-  final shaker=supplements.where((r){
-   final name=(r['name'] as String).toLowerCase();
-   return name.contains('whey')||name.contains('créatine')||name.contains('collagène');
-  }).toList();
-  final shakerDone=shaker.length==3&&shaker.every((r)=>taken.contains(r['id']));
-  return ListView(padding:const EdgeInsets.all(12),children:[
-   Card(child:SwitchListTile(
-    secondary:const Icon(Icons.local_drink_outlined),
-    title:const Text('Shaker pris aujourd’hui'),
-    subtitle:const Text('Whey 30 g + collagène 15 g + créatine 5 g. Coche les trois prises ensemble.'),
-    value:shakerDone,
-    onChanged:shaker.length!=3?null:(v)async{
-     for(final r in shaker){await mark(r,v);}
-     changed();
-    },
-   )),
-   const Padding(padding:EdgeInsets.all(12),child:Text('Compléments individuels')),
-   for(final r in supplements)
-    SwitchListTile(
-     title:Text('${r['name']} • ${r['dose']}'),
-     subtitle:Text('${r['brand']}\n${r['details']}'),
-     isThreeLine:true,
-     value:taken.contains(r['id']),
-     onChanged:r['active']==0?null:(v)async{await mark(r,v);changed();},
-     secondary:IconButton(icon:const Icon(Icons.edit_outlined),onPressed:()async{
-      final dose=TextEditingController(text:fmt(r['dose']));
-      final details=TextEditingController(text:fmt(r['details']));
-      await editForm(context,'Modifier le complément',[('Dose',dose),('Composition / notes',details)],()async{
-       await Store.db.update('supplements',{'dose':dose.text,'details':details.text},where:'id=?',whereArgs:[r['id']]);
-       changed();
-      });
-     }),
-    ),
-   const Padding(padding:EdgeInsets.all(12),child:Text('Psyllium : à cocher uniquement si pris. À utiliser avec suffisamment d’eau ; demander conseil en cas de trouble de déglutition ou de problème intestinal.')),
-  ]);
- });
-}
-class More extends StatelessWidget{final VoidCallback reload;const More({super.key,required this.reload});@override Widget build(BuildContext context)=>ListView(children:[ListTile(title:const Text('Bilans hebdomadaire et mensuel'),subtitle:const Text('Moyennes, évolutions, export CSV et rapport PDF'),leading:const Icon(Icons.insights),onTap:()=>Navigator.of(context).push(MaterialPageRoute(builder:(_)=>ReportsPage(db:Store.db)))),ListTile(title:const Text('Exporter les données JSON'),leading:const Icon(Icons.upload_file),onTap:Store.export),ListTile(title:const Text('Restaurer les données JSON'),subtitle:const Text('Remplace les données locales ; conserver une sauvegarde avant.'),leading:const Icon(Icons.download),onTap:() async{try{await Store.restore();reload();}catch(e){if(context.mounted)ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text('Restauration impossible : $e')));}}),ListTile(title:const Text('Activité et récupération'),onTap:() async{final kind=TextEditingController(),duration=TextEditingController(),intensity=TextEditingController(),notes=TextEditingController();await editForm(context,'Nouvelle activité',[('Type',kind),('Durée (minutes)',duration),('Intensité',intensity),('Fatigue, sommeil, douleurs, chaleur',notes)],() async{await Store.db.insert('activities',{'date':today(),'type':kind.text,'duration':int.tryParse(duration.text),'intensity':intensity.text,'notes':notes.text});reload();});}),ListTile(title:const Text('Objectifs nutrition et poids'),subtitle:const Text('Protéines, lipides, glucides et poids cible'),leading:const Icon(Icons.track_changes),onTap:()async{
- final rows=await Store.all('settings');
- final settings={for(final row in rows) row['key'] as String:row['value'] as String? ?? ''};
- final protein=TextEditingController(text:settings['protein_goal']??'140');
- final fat=TextEditingController(text:settings['fat_goal']??'75');
- final carbs=TextEditingController(text:settings['carb_goal']??'280');
- final weight=TextEditingController(text:settings['weight_goal']??'88');
- if(!context.mounted)return;
- await editForm(context,'Objectifs personnalisés',[('Protéines (g/jour)',protein),('Lipides (g/jour)',fat),('Glucides (g/jour)',carbs),('Poids cible (kg)',weight)],()async{
-  final values={'protein_goal':protein.text,'fat_goal':fat.text,'carb_goal':carbs.text,'weight_goal':weight.text};
-  if(values.values.any((v)=>double.tryParse(v.replaceAll(',','.'))==null))return;
-  for(final entry in values.entries){
-   await Store.db.insert('settings',{'key':entry.key,'value':entry.value.replaceAll(',','.')},conflictAlgorithm:ConflictAlgorithm.replace);
-  }
-  reload();
- });
-}),ListTile(title:const Text('Budget de points quotidien'),subtitle:const Text('48 points de départ, budget modifiable'),leading:const Icon(Icons.toll_outlined),onTap:() async{
- final existing=await Store.db.query('settings',where:'key=?',whereArgs:['points_goal']);
- final controller=TextEditingController(text:existing.isEmpty?'48':(existing.first['value'] as String? ?? '48'));
- if(!context.mounted)return;
- await editForm(context,'Budget de points',[('Points par jour (5 à 100)',controller)],() async{
- final value=int.tryParse(controller.text);
- if(value==null||value<5||value>100)return;
- await Store.db.insert('settings',{'key':'points_goal','value':'$value'},conflictAlgorithm:ConflictAlgorithm.replace);
- reload();
- });
-}),ListTile(title:const Text('Objectif quotidien en calories'),subtitle:const Text('Définir un objectif personnel, sans calcul automatique'),leading:const Icon(Icons.flag_outlined),onTap:() async{
- final existing=await Store.db.query('settings',where:'key=?',whereArgs:['calorie_goal']);
- final controller=TextEditingController(text:existing.isEmpty?'2350':(existing.first['value'] as String? ?? '2350'));
- if(!context.mounted)return;
- await editForm(context,'Objectif calorique',[('kcal par jour',controller)],() async{
- final value=int.tryParse(controller.text);
- if(value==null||value<500||value>10000)return;
- await Store.db.insert('settings',{'key':'calorie_goal','value':'$value'},conflictAlgorithm:ConflictAlgorithm.replace);
- reload();
- });
-}),const ListTile(title:Text('Analyse IA des photos'),subtitle:Text('À venir : aucune photo n’est transmise à un serveur.'))]);}
-,caseSensitive:false),'').trim();
+ final normalized=[for(final value in values)value*100/grams];
+ final productName=selected.trim();
  try{
   final existing=await Store.db.query('food_library',where:'LOWER(name)=?',whereArgs:[productName.toLowerCase()],limit:1);
-  final data=<String,Object?>{'name':productName,'kcal':normalized[0],'protein':normalized[1],'carbs':normalized[2],'fat':normalized[3]};
-  if(existing.isEmpty){await Store.db.insert('food_library',data);}
-  else{await Store.db.update('food_library',data,where:'id=?',whereArgs:[existing.first['id']]);}
+  final record=<String,Object?>{'name':productName,'kcal':normalized[0],'protein':normalized[1],'carbs':normalized[2],'fat':normalized[3]};
+  if(existing.isEmpty){
+   await Store.db.insert('food_library',record);
+  }else{
+   await Store.db.update('food_library',record,where:'id=?',whereArgs:[existing.first['id']]);
+  }
  }catch(e){
-  if(ctx.mounted)ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(content:Text('Produit non enregistré dans la bibliothèque : $e')));
+  if(ctx.mounted)ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(content:Text('Enregistrement impossible : '+e.toString())));
   return;
  }
  if(!ctx.mounted)return;
  setLocal((){
-  libraryValues[selected]=FoodScanResult(productName,normalized[0],normalized[1],normalized[2],normalized[3],portionGrams);
+  libraryValues[selected]=FoodScanResult(productName,normalized[0],normalized[1],normalized[2],normalized[3],grams);
   refreshNutrition();
   unc.text='Valeurs personnalisées enregistrées pour '+productName+'.';
  });
