@@ -457,10 +457,6 @@ class _MealsState extends State<Meals>{DateTime selected=DateTime.now();String g
  Future<void> addIngredient()async{
   final item=ingredientInput.text.trim();if(item.isEmpty)return;
   final saved=await findSaved(item);
-  if(saved==null&&describeEstimate(item).$1.isNotEmpty){
-   ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content:Text('Aliment non reconnu : sélectionne une suggestion ou recherche-le dans la base.')));
-   return;
-  }
   ingredientItems.add(item);
   if(saved!=null)libraryValues[item]=saved;
   syncIngredients();refreshNutrition();ingredientInput.clear();suggestionTerm='';suggestionProducts=[];
@@ -541,7 +537,7 @@ TextButton.icon(onPressed:() async{
   syncIngredients();refreshNutrition();
  });
 },icon:const Icon(Icons.qr_code_scanner),label:const Text('Scanner et ajouter un ingrédient')),TextButton.icon(onPressed:() async{
- final unknown=describeEstimate(desc.text).$1.split(',').map((v)=>v.trim()).where((v)=>v.isNotEmpty).toList();
+ final unknown=ingredientItems.where((item)=>!isKnown(item)).toList();
  if(unknown.isEmpty){ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(content:Text('Aucun aliment inconnu.')));return;}
  final selected=await showDialog<String>(context:ctx,builder:(dialog)=>SimpleDialog(title:const Text('Aliment à compléter'),children:[
  for(final name in unknown)SimpleDialogOption(onPressed:()=>Navigator.pop(dialog,name),child:Text(name)),
