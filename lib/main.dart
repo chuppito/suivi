@@ -362,7 +362,8 @@ const foodReference = <String, (double,double,double,double)>{
 /// Approximations: teaspoon 5 ml, tablespoon 15 ml, glass 200 ml,
 /// bowl 250 ml, small bread slice 25 g. Density depends on food.
 double? estimateGrams(String item,String food) {
- final explicit=RegExp(r'(\d+(?:[.,]\d+)?)\s*(kg|grammes?|g|ml|cl|l)\b').firstMatch(item);
+ final quantities=RegExp(r'(\d+(?:[.,]\d+)?)\s*(kg|grammes?|g|ml|cl|l)\b').allMatches(item).toList();
+ final explicit=quantities.isEmpty?null:quantities.last;
  if(explicit!=null){
   final n=double.parse(explicit.group(1)!.replaceAll(',','.'));
   switch(explicit.group(2)){case 'kg':return n*1000;case 'cl':return n*10;case 'l':return n*1000;default:return n;}
