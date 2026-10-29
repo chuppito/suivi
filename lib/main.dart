@@ -431,7 +431,7 @@ class _MealsState extends State<Meals>{DateTime selected=DateTime.now();String g
  final ingredientItems=<String>[...desc.text.split(',').map((e)=>e.trim()).where((e)=>e.isNotEmpty)];
  void syncIngredients(){desc.text=ingredientItems.join(', ');}
  final libraryValues=<String,FoodScanResult>{};
- double gramsFor(String item){final m=RegExp(r'(\d+(?:[.,]\d+)?)\s*(kg|g|ml|cl|l)\b',caseSensitive:false).firstMatch(item);if(m==null)return 100;final n=double.tryParse(m.group(1)!.replaceAll(',','.'))??100;switch(m.group(2)!.toLowerCase()){case 'kg':return n*1000;case 'cl':return n*10;case 'l':return n*1000;default:return n;}}
+ double gramsFor(String item){final matches=RegExp(r'(\d+(?:[.,]\d+)?)\s*(kg|g|ml|cl|l)\b',caseSensitive:false).allMatches(item).toList();final m=matches.isEmpty?null:matches.last;if(m==null)return 100;final n=double.tryParse(m.group(1)!.replaceAll(',','.'))??100;switch(m.group(2)!.toLowerCase()){case 'kg':return n*1000;case 'cl':return n*10;case 'l':return n*1000;default:return n;}}
  Future<FoodScanResult?> findSaved(String item) async{
   final rows=await Store.db.query('food_library',orderBy:'LENGTH(name) DESC');
   final lower=item.toLowerCase();
@@ -452,8 +452,8 @@ class _MealsState extends State<Meals>{DateTime selected=DateTime.now();String g
    if(saved!=null){final factor=gramsFor(item)/100;kcal+=saved.kcal*factor;proteinTotal+=saved.protein*factor;carbs+=saved.carbs*factor;fatTotal+=saved.fat*factor;}
    else {final e=estimateFoods(item);kcal+=e.$1;proteinTotal+=e.$2;carbs+=e.$3;fatTotal+=e.$4;if(describeEstimate(item).$1.isNotEmpty)missing.add(item);}
   }
-  cal.text=(kcal*1.1).ceil().toString();pro.text=proteinTotal.toStringAsFixed(1);carb.text=carbs.toStringAsFixed(1);fat.text=fatTotal.toStringAsFixed(1);
-  unc.text=missing.isEmpty?'Estimation indicative (+10 %).':'Aliments non reconnus : '+missing.join(', ');
+  cal.text=kcal.ceil().toString();pro.text=proteinTotal.toStringAsFixed(1);carb.text=carbs.toStringAsFixed(1);fat.text=fatTotal.toStringAsFixed(1);
+  unc.text=missing.isEmpty?'Valeurs nutritionnelles des produits reconnus.':'Aliments non reconnus : '+missing.join(', ');
  }
  Future<void> addIngredient()async{
   final item=ingredientInput.text.trim();if(item.isEmpty)return;
