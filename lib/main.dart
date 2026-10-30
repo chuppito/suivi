@@ -462,6 +462,13 @@ class _MealsState extends State<Meals>{DateTime selected=DateTime.now();String g
   if(saved!=null)libraryValues[item]=saved;
   syncIngredients();refreshNutrition();ingredientInput.clear();suggestionTerm='';suggestionProducts=[];
  }
+ // Reconstituer les valeurs des produits enregistrés à chaque réouverture du repas.
+ // Ne pas recalculer les totaux historiques : ils restent ceux validés par l'utilisateur.
+ for (final item in ingredientItems) {
+  final saved = await findSaved(item);
+  if (saved != null) libraryValues[item] = saved;
+ }
+ if (!context.mounted) return;
  await showModalBottomSheet(context:context,isScrollControlled:true,useSafeArea:true,builder:(ctx)=>StatefulBuilder(builder:(ctx,setLocal)=>Padding(padding:EdgeInsets.fromLTRB(16,16,16,MediaQuery.of(ctx).viewInsets.bottom+MediaQuery.of(ctx).viewPadding.bottom+24),child:SingleChildScrollView(child:Column(mainAxisSize:MainAxisSize.min,children:[const Text('Repas : valeurs estimées, à vérifier'),DropdownButtonFormField<String>(value:mealCategories.contains(category.text)?category.text:'Déjeuner',decoration:const InputDecoration(labelText:'Catégorie du repas'),items:[for(final name in mealCategories)DropdownMenuItem(value:name,child:Text(name))],onChanged:(v){if(v!=null)category.text=v;}),for(final f in [('Date',date),('Calories (kcal)',cal),('Protéines (g)',pro),('Glucides (g)',carb),('Lipides (g)',fat),('Incertitudes',unc),('Commentaires',notes)])TextField(controller:f.$2,decoration:InputDecoration(labelText:f.$1)),Row(children:[
  Expanded(child:TextField(controller:ingredientInput,decoration:const InputDecoration(labelText:'Ajouter un aliment et sa portion',hintText:'Ex : 2 œufs ou poulet 100g'),onChanged:(v)=>loadSuggestions(v,setLocal),onSubmitted:(_)async{await addIngredient();if(ctx.mounted)setLocal((){});})),
  IconButton(tooltip:'Ajouter cet aliment',icon:const Icon(Icons.add_circle_outline),onPressed:()async{await addIngredient();if(ctx.mounted)setLocal((){});}),
